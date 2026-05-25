@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Situation } from "../data/situations";
 import type { SituationProgress } from "../lib/progress";
 import { getSituationMastery } from "../lib/progress";
@@ -10,11 +11,24 @@ type SituationCardProps = {
 
 export function SituationCard({ situation, progress }: SituationCardProps) {
   const mastery = getSituationMastery(progress);
+  const generatedImage = getGeneratedImagePath(situation.image);
+  const [imageSrc, setImageSrc] = useState(generatedImage);
+
+  useEffect(() => {
+    setImageSrc(getGeneratedImagePath(situation.image));
+  }, [situation.image]);
 
   return (
     <section className="scene-panel" aria-label="Training situation">
       <div className="scene-image-wrap">
-        <img className="scene-image" src={situation.image} alt={`${situation.category} situation`} />
+        <img
+          className="scene-image"
+          src={imageSrc}
+          alt={`${situation.category} situation`}
+          onError={() => {
+            if (imageSrc !== situation.image) setImageSrc(situation.image);
+          }}
+        />
       </div>
       <div className="scene-copy">
         <div className="situation-meta">
@@ -28,4 +42,9 @@ export function SituationCard({ situation, progress }: SituationCardProps) {
       <ProgressBar value={mastery} label="This situation" tone={mastery >= 70 ? "green" : "amber"} />
     </section>
   );
+}
+
+function getGeneratedImagePath(fallbackPath: string) {
+  const fileName = fallbackPath.split("/").pop()?.replace(/\.svg$/i, ".png");
+  return fileName ? `/images/generated/${fileName}` : fallbackPath;
 }

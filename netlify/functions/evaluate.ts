@@ -24,6 +24,9 @@ const jsonHeaders = {
   "Content-Type": "application/json"
 };
 
+const DEFAULT_GEMINI_EVALUATION_MODEL = "gemini-2.5-flash-lite";
+const DEFAULT_OPENAI_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe";
+
 export default async function handler(request: Request) {
   if (request.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
@@ -61,10 +64,10 @@ async function transcribeAudio(audio: Blob) {
     throw new Error("OPENAI_API_KEY is missing.");
   }
 
-  const model = process.env.OPENAI_TRANSCRIBE_MODEL ?? "gpt-4o-mini-transcribe";
+  const model = process.env.OPENAI_TRANSCRIBE_MODEL ?? DEFAULT_OPENAI_TRANSCRIBE_MODEL;
   const body = new FormData();
   body.append("model", model);
-  body.append("file", audio, "answer.webm");
+  body.append("file", audio, getAudioFileName(audio.type));
 
   const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
@@ -97,7 +100,7 @@ async function evaluateWithGemini(
     throw new Error("GEMINI_API_KEY is missing.");
   }
 
-  const model = process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite";
+  const model = process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_EVALUATION_MODEL;
   const prompt = buildEvaluationPrompt(situation, transcript, speed);
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
     model
@@ -286,4 +289,12 @@ function json(payload: unknown, status = 200) {
     status,
     headers: jsonHeaders
   });
+}
+
+function getAudioFileName(type: string) {
+  if (type.includes("mp4")) return "answer.mp4";
+  if (type.includes("aac")) return "answer.aac";
+  if (type.includes("mpeg")) return "answer.mp3";
+  if (type.includes("wav")) return "answer.wav";
+  return "answer.webm";
 }

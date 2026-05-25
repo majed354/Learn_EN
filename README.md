@@ -17,6 +17,7 @@ The training screen avoids Arabic so the learner does not translate in their hea
 - Netlify Functions
 - OpenAI speech-to-text: `gpt-4o-mini-transcribe`
 - Gemini evaluation: `gemini-2.5-flash-lite`
+- Gemini one-time image generation: `gemini-2.5-flash-image`
 - Browser SpeechSynthesis for playback
 - `localStorage` progress for the MVP
 
@@ -34,6 +35,7 @@ OPENAI_API_KEY=...
 GEMINI_API_KEY=...
 OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe
 GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 EVALUATOR_PROVIDER=gemini
 ```
 
@@ -50,6 +52,36 @@ npm run netlify:dev
 ```
 
 If the frontend cannot reach the function during local frontend-only development, it returns a demo evaluation so the UI can still be tested.
+
+## Situation Images
+
+The app first tries to load professional generated images from:
+
+```text
+public/images/generated/
+```
+
+If a generated image is missing, the app automatically falls back to the lightweight SVG scene.
+
+Generate missing images once:
+
+```bash
+npm run images:generate
+```
+
+This command skips files that already exist. To explicitly update all generated images:
+
+```bash
+npm run images:refresh
+```
+
+To refresh one image only:
+
+```bash
+npm run images:generate -- --only=hotel --refresh
+```
+
+The image prompts are in `scripts/image-prompts.json`.
 
 ## Optional Local Evaluator
 
@@ -100,11 +132,12 @@ All can be accepted if they handle the same situation.
    - `GEMINI_API_KEY`
    - `OPENAI_TRANSCRIBE_MODEL`
    - `GEMINI_MODEL`
+   - `GEMINI_IMAGE_MODEL`
    - `EVALUATOR_PROVIDER=gemini`
 
 ## Next Steps
 
-- Replace SVG scenes with richer photos or short clips.
+- Generate richer situation photos and commit them when the first set looks right.
 - Add 100 to 300 situations.
 - Add role-play mode.
 - Add Supabase accounts after the training loop feels useful.

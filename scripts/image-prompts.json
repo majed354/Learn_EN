@@ -1,0 +1,52 @@
+[
+  {
+    "id": "hotel",
+    "output": "public/images/generated/hotel.png",
+    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: a traveler at a modern hotel reception desk checking in, friendly receptionist, suitcase nearby, warm natural light, realistic travel photography, clear visual situation, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "airport",
+    "output": "public/images/generated/airport.png",
+    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: traveler at an airport airline check-in counter with passport and suitcase, bright terminal, natural candid photography, clear action, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "passport",
+    "output": "public/images/generated/passport.png",
+    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: passport control booth at an international airport, officer checking a traveler's passport, respectful neutral mood, realistic lighting, clear visual cue, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "restaurant",
+    "output": "public/images/generated/restaurant.png",
+    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: person sitting at a restaurant table politely asking a waiter for a menu, cozy casual restaurant, clear body language, natural light, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "taxi",
+    "output": "public/images/generated/taxi.png",
+    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: traveler speaking to a taxi driver from the back seat, city street outside, suitcase visible, realistic candid travel photography, clear destination-request situation, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "directions",
+    "output": "public/images/generated/directions.png",
+    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: traveler on a city sidewalk asking a local person for directions while looking at a phone map, friendly helpful gesture, realistic daylight, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "shopping",
+    "output": "public/images/generated/shopping.png",
+    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: customer in a clothing store asking a shop assistant for another shirt size, racks of clothes softly blurred, natural modern retail lighting, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "payment",
+    "output": "public/images/generated/payment.png",
+    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: close but natural view of a customer paying by card at a cashier counter, card terminal visible, realistic hands and counter, clear payment situation, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "emergency",
+    "output": "public/images/generated/emergency.png",
+    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: traveler speaking to a pharmacist for help with a headache, pharmacy counter, calm helpful mood, realistic documentary photo style, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "small-talk",
+    "output": "public/images/generated/small-talk.png",
+    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: two adults having friendly small talk in a cafe, relaxed conversation, natural facial expressions, soft daylight, realistic candid photography, no readable text, no logos, no watermark, no captions."
+  }
+]

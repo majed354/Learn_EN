@@ -1,4 +1,4 @@
-import { BarChart3, RotateCcw, Trophy } from "lucide-react";
+import { BarChart3, Dumbbell, ListChecks, RotateCcw, Trophy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AudioRecorder } from "./components/AudioRecorder";
 import { FeedbackPanel } from "./components/FeedbackPanel";
@@ -117,13 +117,16 @@ function App() {
         </div>
         <nav className="view-tabs" aria-label="Sections">
           <button className={view === "train" ? "active" : ""} type="button" onClick={() => setView("train")}>
-            Train
+            <Dumbbell size={17} aria-hidden="true" />
+            <span>Train</span>
           </button>
           <button className={view === "review" ? "active" : ""} type="button" onClick={() => setView("review")}>
-            Review
+            <ListChecks size={17} aria-hidden="true" />
+            <span>Review</span>
           </button>
           <button className={view === "stats" ? "active" : ""} type="button" onClick={() => setView("stats")}>
-            Stats
+            <BarChart3 size={17} aria-hidden="true" />
+            <span>Stats</span>
           </button>
         </nav>
       </header>

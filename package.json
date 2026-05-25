@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "netlify:dev": "netlify dev"
+    "netlify:dev": "netlify dev",
+    "images:generate": "node scripts/generate-situation-images.mjs",
+    "images:refresh": "node scripts/generate-situation-images.mjs --refresh"
   },
   "dependencies": {
     "@google/genai": "^1.0.1",
