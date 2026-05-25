@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Passport control">
+  <rect width="1200" height="750" fill="#e6ece7"/>
+  <rect x="105" y="120" width="990" height="480" rx="28" fill="#ffffff"/>
+  <rect x="152" y="178" width="360" height="350" rx="18" fill="#274a68"/>
+  <circle cx="332" cy="306" r="76" fill="#f4cb75"/>
+  <path d="M270 388c42 44 82 44 124 0" stroke="#f4cb75" stroke-width="18" fill="none"/>
+  <rect x="620" y="204" width="300" height="68" rx="12" fill="#dce8f0"/>
+  <rect x="620" y="304" width="300" height="68" rx="12" fill="#dce8f0"/>
+  <rect x="620" y="404" width="220" height="68" rx="12" fill="#dce8f0"/>
+  <circle cx="930" cy="498" r="70" fill="#2d7a5f"/>
+  <path d="M897 498l24 25 45-56" stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="230" y="495" fill="#ffffff" font-family="Arial, sans-serif" font-size="34" font-weight="700">PASSPORT</text>
+</svg>

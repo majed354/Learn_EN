@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Small talk conversation">
+  <rect width="1200" height="750" fill="#e9ede4"/>
+  <rect x="144" y="138" width="912" height="430" rx="30" fill="#ffffff"/>
+  <circle cx="390" cy="382" r="72" fill="#f1b08e"/>
+  <rect x="322" y="454" width="136" height="126" rx="28" fill="#2d7a5f"/>
+  <circle cx="812" cy="382" r="72" fill="#f1b08e"/>
+  <rect x="744" y="454" width="136" height="126" rx="28" fill="#315b7a"/>
+  <path d="M244 230h276c30 0 54 24 54 54v16c0 30-24 54-54 54H380l-74 66v-66h-62c-30 0-54-24-54-54v-16c0-30 24-54 54-54z" fill="#dceae4"/>
+  <path d="M680 174h276c30 0 54 24 54 54v16c0 30-24 54-54 54h-62v66l-74-66H680c-30 0-54-24-54-54v-16c0-30 24-54 54-54z" fill="#e7edf6"/>
+  <rect x="262" y="274" width="220" height="18" rx="9" fill="#78928a"/>
+  <rect x="698" y="218" width="220" height="18" rx="9" fill="#6f87a5"/>
+</svg>

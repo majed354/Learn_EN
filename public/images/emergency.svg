@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Emergency help">
+  <rect width="1200" height="750" fill="#f2e7e4"/>
+  <rect x="148" y="120" width="904" height="500" rx="32" fill="#ffffff"/>
+  <rect x="485" y="198" width="230" height="330" rx="28" fill="#d9534f"/>
+  <rect x="570" y="238" width="60" height="250" rx="12" fill="#ffffff"/>
+  <rect x="510" y="332" width="180" height="60" rx="12" fill="#ffffff"/>
+  <circle cx="296" cy="454" r="56" fill="#f1b08e"/>
+  <rect x="244" y="512" width="104" height="90" rx="20" fill="#315b7a"/>
+  <circle cx="900" cy="454" r="56" fill="#f1b08e"/>
+  <rect x="848" y="512" width="104" height="90" rx="20" fill="#2d7a5f"/>
+  <rect x="218" y="204" width="210" height="60" rx="14" fill="#f4d5cd"/>
+  <rect x="772" y="204" width="210" height="60" rx="14" fill="#dceae4"/>
+</svg>

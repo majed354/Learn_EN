@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Asking directions">
+  <rect width="1200" height="750" fill="#dfe9dc"/>
+  <path d="M0 520h1200v230H0z" fill="#b9c8bc"/>
+  <path d="M520 750l96-230h118l110 230z" fill="#586b63"/>
+  <rect x="182" y="150" width="188" height="340" rx="18" fill="#ffffff"/>
+  <rect x="222" y="192" width="108" height="58" rx="10" fill="#9cc0cf"/>
+  <rect x="222" y="280" width="108" height="58" rx="10" fill="#9cc0cf"/>
+  <rect x="222" y="368" width="108" height="58" rx="10" fill="#9cc0cf"/>
+  <rect x="748" y="128" width="250" height="130" rx="16" fill="#315b50"/>
+  <path d="M806 194h126" stroke="#ffffff" stroke-width="18" stroke-linecap="round"/>
+  <path d="M904 154l48 40-48 40" stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="510" cy="430" r="50" fill="#f1b08e"/>
+  <rect x="464" y="480" width="92" height="116" rx="22" fill="#2d7a5f"/>
+  <circle cx="690" cy="430" r="50" fill="#f1b08e"/>
+  <rect x="644" y="480" width="92" height="116" rx="22" fill="#2b465f"/>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Shopping for clothes">
+  <rect width="1200" height="750" fill="#f0ece4"/>
+  <rect x="120" y="120" width="960" height="510" rx="28" fill="#ffffff"/>
+  <rect x="210" y="170" width="136" height="352" rx="16" fill="#dbe7e2"/>
+  <rect x="432" y="170" width="136" height="352" rx="16" fill="#dbe7e2"/>
+  <rect x="654" y="170" width="136" height="352" rx="16" fill="#dbe7e2"/>
+  <rect x="876" y="170" width="136" height="352" rx="16" fill="#dbe7e2"/>
+  <path d="M256 238c44 24 88 24 132 0l42 70-54 36v148H268V344l-54-36z" fill="#2d7a5f"/>
+  <path d="M478 238c44 24 88 24 132 0l42 70-54 36v148H490V344l-54-36z" fill="#315b7a"/>
+  <path d="M700 238c44 24 88 24 132 0l42 70-54 36v148H712V344l-54-36z" fill="#d98c22"/>
+  <rect x="250" y="560" width="700" height="38" rx="14" fill="#315b50"/>
+</svg>

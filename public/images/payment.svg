@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Payment terminal">
+  <rect width="1200" height="750" fill="#e8eef0"/>
+  <rect x="176" y="170" width="420" height="270" rx="24" fill="#263d46"/>
+  <rect x="220" y="218" width="332" height="104" rx="14" fill="#c6e5d4"/>
+  <rect x="244" y="360" width="72" height="42" rx="10" fill="#f5f6f3"/>
+  <rect x="350" y="360" width="72" height="42" rx="10" fill="#f5f6f3"/>
+  <rect x="456" y="360" width="72" height="42" rx="10" fill="#f5f6f3"/>
+  <rect x="652" y="230" width="330" height="210" rx="24" fill="#2d7a5f"/>
+  <rect x="652" y="282" width="330" height="54" fill="#193c32"/>
+  <circle cx="738" cy="392" r="22" fill="#f8df8a"/>
+  <circle cx="782" cy="392" r="22" fill="#f4b48f"/>
+  <text x="250" y="288" fill="#254238" font-family="Arial, sans-serif" font-size="38" font-weight="700">CARD?</text>
+</svg>

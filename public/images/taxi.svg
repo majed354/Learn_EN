@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Taxi ride">
+  <rect width="1200" height="750" fill="#dcebf0"/>
+  <rect y="480" width="1200" height="270" fill="#49565a"/>
+  <rect x="170" y="380" width="860" height="160" rx="48" fill="#f1c84b"/>
+  <path d="M332 380l90-120h340l92 120z" fill="#f5d867"/>
+  <rect x="450" y="286" width="116" height="74" rx="10" fill="#d8ecf1"/>
+  <rect x="596" y="286" width="116" height="74" rx="10" fill="#d8ecf1"/>
+  <rect x="532" y="226" width="144" height="50" rx="10" fill="#2e383b"/>
+  <text x="562" y="260" fill="#ffffff" font-family="Arial, sans-serif" font-size="28" font-weight="700">TAXI</text>
+  <circle cx="350" cy="544" r="58" fill="#20292c"/>
+  <circle cx="850" cy="544" r="58" fill="#20292c"/>
+  <circle cx="350" cy="544" r="24" fill="#87959a"/>
+  <circle cx="850" cy="544" r="24" fill="#87959a"/>
+  <rect x="80" y="608" width="1040" height="18" rx="9" fill="#f6f2df"/>
+</svg>

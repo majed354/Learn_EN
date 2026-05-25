@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" role="img" aria-label="Hotel check-in desk">
+  <rect width="1200" height="750" fill="#d8e8e1"/>
+  <rect x="0" y="0" width="1200" height="240" fill="#f7fbf9"/>
+  <rect x="112" y="90" width="976" height="520" rx="34" fill="#ffffff"/>
+  <rect x="160" y="162" width="360" height="332" rx="18" fill="#dbe8f3"/>
+  <rect x="602" y="164" width="286" height="246" rx="18" fill="#f2dfbe"/>
+  <rect x="125" y="520" width="950" height="104" rx="18" fill="#315b50"/>
+  <rect x="180" y="548" width="288" height="42" rx="8" fill="#f8d97f"/>
+  <circle cx="742" cy="270" r="72" fill="#f4b48f"/>
+  <rect x="676" y="336" width="132" height="126" rx="26" fill="#2d7a5f"/>
+  <circle cx="362" cy="318" r="62" fill="#f4b48f"/>
+  <rect x="304" y="376" width="118" height="122" rx="22" fill="#2b465f"/>
+  <rect x="714" y="472" width="190" height="48" rx="8" fill="#f8f4e9"/>
+  <rect x="740" y="186" width="170" height="28" rx="8" fill="#2c544b"/>
+  <text x="205" y="246" fill="#315b50" font-family="Arial, sans-serif" font-size="42" font-weight="700">HOTEL</text>
+</svg>
