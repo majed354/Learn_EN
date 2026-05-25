@@ -299,7 +299,7 @@ Rules:
 4. If the learner's sentence is understandable and achieves the target meaning, meaning should usually be 70 or higher.
 5. Do not punish accents or transcription punctuation.
 6. Be light about small article errors such as "a" or "the".
-7. Mark wrong_meaning only when the answer would not solve the real situation.
+7. If the answer does not solve the real situation, set meaning <= 40, overall <= 45, passed false, and error_type "wrong_meaning".
 8. Feedback must be short English only. Do not use Arabic.
 9. Give one better English answer that is natural and short. It is a suggestion, not the only correct answer.
 10. Return JSON only.
@@ -325,13 +325,16 @@ function normalizeEvaluation(
   const meaning = clampScore(evaluation.meaning);
   const grammar = clampScore(evaluation.grammar);
   const naturalness = clampScore(evaluation.naturalness);
+  const wrongMeaning = evaluation.error_type === "wrong_meaning" || meaning < 60;
+  const unclearAudio = evaluation.error_type === "unclear_audio";
   const modelOverall =
     typeof evaluation.overall === "number"
       ? clampScore(evaluation.overall)
       : Math.round(meaning * 0.45 + grammar * 0.2 + naturalness * 0.2 + speed * 0.15);
-  const overall = clampScore(modelOverall * 0.85 + speed * 0.15);
-  const semanticallyGood = meaning >= 70 && overall >= 65;
-  const passed = semanticallyGood || evaluation.passed === true;
+  const rawOverall = clampScore(modelOverall * 0.85 + speed * 0.15);
+  const overall = wrongMeaning ? Math.min(rawOverall, 45) : unclearAudio ? Math.min(rawOverall, 40) : rawOverall;
+  const semanticallyGood = meaning >= 70 && overall >= 65 && !wrongMeaning && !unclearAudio;
+  const passed = semanticallyGood && evaluation.passed !== false;
 
   return {
     transcript,
@@ -344,7 +347,7 @@ function normalizeEvaluation(
     perfect: meaning >= 85 && speed >= 75,
     better_answer: evaluation.better_answer || "Could you say that again, please?",
     feedback_en: evaluation.feedback_en || "Try again with a shorter, clearer sentence.",
-    error_type: evaluation.error_type || (speed < 50 ? "too_slow" : "none"),
+    error_type: wrongMeaning ? "wrong_meaning" : evaluation.error_type || (speed < 50 ? "too_slow" : "none"),
     mode: "live"
   };
 }

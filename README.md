@@ -20,6 +20,7 @@ The training screen avoids Arabic so the learner does not translate in their hea
 - Gemini one-time image generation: `gemini-2.5-flash-image`
 - Browser SpeechSynthesis for playback
 - `localStorage` progress for the MVP
+- 100 flexible everyday travel and small-talk situations
 
 ## Local Setup
 
@@ -159,6 +160,6 @@ All can be accepted if they handle the same situation.
 ## Next Steps
 
 - Generate richer situation photos and commit them when the first set looks right.
-- Add 100 to 300 situations.
+- Expand beyond 100 situations after testing the first full set.
 - Add role-play mode.
 - Add Supabase accounts after the training loop feels useful.

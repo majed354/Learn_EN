@@ -5,6 +5,7 @@ import { FeedbackPanel } from "./components/FeedbackPanel";
 import { ProgressBar } from "./components/ProgressBar";
 import { ProgressDashboard } from "./components/ProgressDashboard";
 import { SituationCard } from "./components/SituationCard";
+import { SituationImage } from "./components/SituationImage";
 import { Timer } from "./components/Timer";
 import { situations } from "./data/situations";
 import type { Situation } from "./data/situations";
@@ -215,7 +216,7 @@ function ReviewView({
           const mastery = getSituationMastery(item);
           return (
             <button className="situation-row" key={situation.id} type="button" onClick={() => onTrain(situation)}>
-              <img src={situation.image} alt="" />
+              <SituationImage situation={situation} />
               <span>
                 <strong>{situation.prompt}</strong>
                 <small>{item.status}</small>

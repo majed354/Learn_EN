@@ -1,52 +1,102 @@
 [
   {
-    "id": "hotel",
-    "output": "public/images/generated/hotel.png",
-    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: a traveler at a modern hotel reception desk checking in, friendly receptionist, suitcase nearby, warm natural light, realistic travel photography, clear visual situation, no readable text, no logos, no watermark, no captions."
+    "id": "hotel-checkin-001",
+    "output": "public/images/generated/hotel-checkin-001.png",
+    "prompt": "Photorealistic horizontal travel scene for an English reflex training app: a traveler with a suitcase standing at a modern hotel reception desk, politely checking in with a friendly receptionist, warm lobby lighting, clear hotel check-in situation, natural realistic photography, no readable text, no logos, no watermark, no captions."
   },
   {
-    "id": "airport",
-    "output": "public/images/generated/airport.png",
-    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: traveler at an airport airline check-in counter with passport and suitcase, bright terminal, natural candid photography, clear action, no readable text, no logos, no watermark, no captions."
+    "id": "hotel-key-002",
+    "output": "public/images/generated/hotel-key-002.png",
+    "prompt": "Photorealistic horizontal travel scene: hotel guest at a reception desk holding a key card that is not working, receptionist ready to help, subtle concerned expression, modern hotel lobby, clear room-key problem, realistic candid photography, no readable text, no logos, no watermark, no captions."
   },
   {
-    "id": "passport",
-    "output": "public/images/generated/passport.png",
-    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: passport control booth at an international airport, officer checking a traveler's passport, respectful neutral mood, realistic lighting, clear visual cue, no readable text, no logos, no watermark, no captions."
+    "id": "airport-checkin-003",
+    "output": "public/images/generated/airport-checkin-003.png",
+    "prompt": "Photorealistic horizontal airport scene: traveler at an airline check-in counter handing over passport with one suitcase beside them, bright terminal interior, clear flight check-in situation, realistic travel photography, no readable text, no logos, no watermark, no captions."
   },
   {
-    "id": "restaurant",
-    "output": "public/images/generated/restaurant.png",
-    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: person sitting at a restaurant table politely asking a waiter for a menu, cozy casual restaurant, clear body language, natural light, no readable text, no logos, no watermark, no captions."
+    "id": "passport-control-004",
+    "output": "public/images/generated/passport-control-004.png",
+    "prompt": "Photorealistic horizontal airport passport control scene: immigration officer behind glass speaking to a traveler holding a passport, neutral respectful mood, clear visual cue for explaining visit purpose, realistic lighting, no readable text, no logos, no watermark, no captions."
   },
   {
-    "id": "taxi",
-    "output": "public/images/generated/taxi.png",
-    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: traveler speaking to a taxi driver from the back seat, city street outside, suitcase visible, realistic candid travel photography, clear destination-request situation, no readable text, no logos, no watermark, no captions."
+    "id": "baggage-lost-005",
+    "output": "public/images/generated/baggage-lost-005.png",
+    "prompt": "Photorealistic horizontal airport baggage claim scene: traveler standing by a luggage carousel looking worried because a suitcase did not arrive, baggage service desk visible in the background, clear missing-luggage situation, realistic photography, no readable text, no logos, no watermark, no captions."
   },
   {
-    "id": "directions",
-    "output": "public/images/generated/directions.png",
-    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: traveler on a city sidewalk asking a local person for directions while looking at a phone map, friendly helpful gesture, realistic daylight, no readable text, no logos, no watermark, no captions."
+    "id": "restaurant-menu-006",
+    "output": "public/images/generated/restaurant-menu-006.png",
+    "prompt": "Photorealistic horizontal restaurant scene: person seated at a table politely asking a waiter for a menu, empty table setting, cozy casual restaurant, clear request-for-menu situation, natural light, no readable text, no logos, no watermark, no captions."
   },
   {
-    "id": "shopping",
-    "output": "public/images/generated/shopping.png",
-    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: customer in a clothing store asking a shop assistant for another shirt size, racks of clothes softly blurred, natural modern retail lighting, no readable text, no logos, no watermark, no captions."
+    "id": "restaurant-bill-007",
+    "output": "public/images/generated/restaurant-bill-007.png",
+    "prompt": "Photorealistic horizontal restaurant scene: diner finished eating and politely asking a waiter for the bill, empty plate and card wallet on table, clear payment-after-meal situation, realistic candid photography, no readable text, no logos, no watermark, no captions."
   },
   {
-    "id": "payment",
-    "output": "public/images/generated/payment.png",
-    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: close but natural view of a customer paying by card at a cashier counter, card terminal visible, realistic hands and counter, clear payment situation, no readable text, no logos, no watermark, no captions."
+    "id": "taxi-airport-008",
+    "output": "public/images/generated/taxi-airport-008.png",
+    "prompt": "Photorealistic horizontal taxi scene: traveler getting into a taxi with suitcase and telling the driver to go to the airport, city street outside, clear destination request situation, natural travel photography, no readable text, no logos, no watermark, no captions."
   },
   {
-    "id": "emergency",
-    "output": "public/images/generated/emergency.png",
-    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: traveler speaking to a pharmacist for help with a headache, pharmacy counter, calm helpful mood, realistic documentary photo style, no readable text, no logos, no watermark, no captions."
+    "id": "taxi-receipt-009",
+    "output": "public/images/generated/taxi-receipt-009.png",
+    "prompt": "Photorealistic horizontal taxi interior scene: passenger after paying politely asking the driver for a receipt, driver holding a small receipt printer or paper, clear receipt request situation, realistic light, no readable text, no logos, no watermark, no captions."
   },
   {
-    "id": "small-talk",
-    "output": "public/images/generated/small-talk.png",
-    "prompt": "Photorealistic horizontal 16:9 scene for an English speaking practice app: two adults having friendly small talk in a cafe, relaxed conversation, natural facial expressions, soft daylight, realistic candid photography, no readable text, no logos, no watermark, no captions."
+    "id": "directions-station-010",
+    "output": "public/images/generated/directions-station-010.png",
+    "prompt": "Photorealistic horizontal city sidewalk scene: traveler asking a local person for directions to a train station while holding a phone map, friendly pointing gesture, station-like architecture in the distance, clear directions situation, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "shopping-size-011",
+    "output": "public/images/generated/shopping-size-011.png",
+    "prompt": "Photorealistic horizontal clothing store scene: customer holding a shirt and asking a shop assistant for a different size, racks of clothes in background, clear size-request situation, modern retail lighting, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "shopping-return-012",
+    "output": "public/images/generated/shopping-return-012.png",
+    "prompt": "Photorealistic horizontal store counter scene: customer returning an item with a receipt while speaking to a shop assistant, shopping bag on counter, clear return-item situation, realistic retail photography, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "payment-card-013",
+    "output": "public/images/generated/payment-card-013.png",
+    "prompt": "Photorealistic horizontal cashier scene: customer holding a payment card near a card terminal and asking to pay by card, cashier counter, clear card-payment situation, realistic hands and terminal, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "payment-price-014",
+    "output": "public/images/generated/payment-price-014.png",
+    "prompt": "Photorealistic horizontal market or shop scene: customer holding a product and asking a cashier about the price, price tag turned away or blurred, clear asking-price situation, natural realistic photography, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "emergency-pharmacy-015",
+    "output": "public/images/generated/emergency-pharmacy-015.png",
+    "prompt": "Photorealistic horizontal pharmacy scene: traveler speaking to a pharmacist while touching forehead to show a headache, medicine shelves softly blurred, calm helpful mood, clear pharmacy-help situation, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "emergency-police-016",
+    "output": "public/images/generated/emergency-police-016.png",
+    "prompt": "Photorealistic horizontal public help desk scene: traveler looking concerned and explaining a lost wallet to a uniformed help officer, empty pocket gesture, calm safe setting, clear lost-wallet situation, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "smalltalk-weather-017",
+    "output": "public/images/generated/smalltalk-weather-017.png",
+    "prompt": "Photorealistic horizontal outdoor small-talk scene: two adults smiling and casually talking about pleasant weather in a sunny park or sidewalk cafe, relaxed natural conversation, clear weather small-talk situation, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "smalltalk-intro-018",
+    "output": "public/images/generated/smalltalk-intro-018.png",
+    "prompt": "Photorealistic horizontal social introduction scene: two adults meeting for the first time and shaking hands or greeting politely in a cafe or conference lobby, warm natural expressions, clear self-introduction situation, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "restaurant-coffee-019",
+    "output": "public/images/generated/restaurant-coffee-019.png",
+    "prompt": "Photorealistic horizontal coffee shop scene: customer at counter ordering a coffee from a barista, takeaway cup and espresso machine visible, clear coffee-order situation, warm realistic cafe lighting, no readable text, no logos, no watermark, no captions."
+  },
+  {
+    "id": "phone-repeat-020",
+    "output": "public/images/generated/phone-repeat-020.png",
+    "prompt": "Photorealistic horizontal phone conversation scene: person holding a phone with a slightly confused expression, one hand near ear as if asking the caller to repeat, quiet indoor background, clear ask-to-repeat situation, no readable text, no logos, no watermark, no captions."
   }
 ]
