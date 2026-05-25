@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Situation } from "../data/situations";
 import type { SituationProgress } from "../lib/progress";
 import { getSituationMastery } from "../lib/progress";
@@ -11,11 +11,11 @@ type SituationCardProps = {
 
 export function SituationCard({ situation, progress }: SituationCardProps) {
   const mastery = getSituationMastery(progress);
-  const generatedImage = getGeneratedImagePath(situation.image);
-  const [imageSrc, setImageSrc] = useState(generatedImage);
+  const imageSources = useMemo(() => getImageSources(situation.image), [situation.image]);
+  const [imageIndex, setImageIndex] = useState(0);
 
   useEffect(() => {
-    setImageSrc(getGeneratedImagePath(situation.image));
+    setImageIndex(0);
   }, [situation.image]);
 
   return (
@@ -23,10 +23,10 @@ export function SituationCard({ situation, progress }: SituationCardProps) {
       <div className="scene-image-wrap">
         <img
           className="scene-image"
-          src={imageSrc}
+          src={imageSources[imageIndex]}
           alt={`${situation.category} situation`}
           onError={() => {
-            if (imageSrc !== situation.image) setImageSrc(situation.image);
+            setImageIndex((currentIndex) => Math.min(currentIndex + 1, imageSources.length - 1));
           }}
         />
       </div>
@@ -44,7 +44,13 @@ export function SituationCard({ situation, progress }: SituationCardProps) {
   );
 }
 
-function getGeneratedImagePath(fallbackPath: string) {
+function getImageSources(fallbackPath: string) {
   const id = fallbackPath.split("/").pop()?.replace(/\.svg$/i, "");
-  return id ? `/.netlify/functions/situation-image?id=${encodeURIComponent(id)}` : fallbackPath;
+  if (!id) return [fallbackPath];
+
+  return [
+    `/images/generated/${id}.png`,
+    `/.netlify/functions/situation-image?id=${encodeURIComponent(id)}`,
+    fallbackPath
+  ];
 }
