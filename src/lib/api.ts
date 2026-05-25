@@ -8,7 +8,7 @@ export async function submitAnswer(
   responseTimeMs: number
 ): Promise<EvaluationResult> {
   const formData = new FormData();
-  formData.append("audio", audioBlob, "answer.webm");
+  formData.append("audio", audioBlob, getAudioFileName(audioBlob.type));
   formData.append(
     "situation",
     JSON.stringify({
@@ -42,6 +42,14 @@ export async function submitAnswer(
     speed: clampScore(result.speed),
     overall: clampScore(result.overall)
   };
+}
+
+function getAudioFileName(type: string) {
+  if (type.includes("mp4")) return "answer.mp4";
+  if (type.includes("aac")) return "answer.aac";
+  if (type.includes("mpeg")) return "answer.mp3";
+  if (type.includes("wav")) return "answer.wav";
+  return "answer.webm";
 }
 
 function demoEvaluation(situation: Situation, responseTimeMs: number): EvaluationResult {

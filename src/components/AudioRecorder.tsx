@@ -17,14 +17,30 @@ export function AudioRecorder({ disabled, onRecordingStart, onRecordingStop }: A
 
   async function startRecording() {
     setError(null);
+    if (!window.isSecureContext) {
+      setError("Open the site with HTTPS. Browsers block microphone access on insecure pages.");
+      return;
+    }
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("Microphone recording is not supported in this browser.");
       return;
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const permissionState = await getMicrophonePermissionState();
+      if (permissionState === "denied") {
+        setError("Microphone is blocked in site settings. Change it to Allow, then reload.");
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      });
+      const recorder = createRecorder(stream);
       chunksRef.current = [];
       streamRef.current = stream;
       recorderRef.current = recorder;
@@ -46,8 +62,10 @@ export function AudioRecorder({ disabled, onRecordingStart, onRecordingStop }: A
       recorder.start();
       setIsRecording(true);
       onRecordingStart(startedAtRef.current);
-    } catch {
-      setError("Microphone permission is needed to train.");
+    } catch (caught) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      setIsRecording(false);
+      setError(getMicrophoneErrorMessage(caught));
     }
   }
 
@@ -72,4 +90,50 @@ export function AudioRecorder({ disabled, onRecordingStart, onRecordingStop }: A
       {error ? <p className="inline-error">{error}</p> : null}
     </div>
   );
+}
+
+async function getMicrophonePermissionState() {
+  if (!navigator.permissions?.query) return "unknown";
+
+  try {
+    const status = await navigator.permissions.query({ name: "microphone" as PermissionName });
+    return status.state;
+  } catch {
+    return "unknown";
+  }
+}
+
+function createRecorder(stream: MediaStream) {
+  const supportedType = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/aac"
+  ].find((type) => MediaRecorder.isTypeSupported(type));
+
+  return supportedType ? new MediaRecorder(stream, { mimeType: supportedType }) : new MediaRecorder(stream);
+}
+
+function getMicrophoneErrorMessage(error: unknown) {
+  if (!(error instanceof DOMException)) {
+    return "The microphone could not start. Try a different browser or close other audio apps.";
+  }
+
+  if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+    return "Microphone is still blocked. Open site settings, allow microphone, then reload.";
+  }
+
+  if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+    return "No microphone was found on this device.";
+  }
+
+  if (error.name === "NotReadableError" || error.name === "TrackStartError") {
+    return "The microphone is busy. Close other apps using it, then try again.";
+  }
+
+  if (error.name === "SecurityError") {
+    return "Microphone access requires HTTPS and browser permission.";
+  }
+
+  return `${error.name}: ${error.message || "The microphone could not start."}`;
 }
