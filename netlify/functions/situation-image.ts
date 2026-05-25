@@ -95,14 +95,7 @@ async function generateSituationImage(prompt: string) {
             role: "user",
             parts: [{ text: prompt }]
           }
-        ],
-        generationConfig: {
-          responseFormat: {
-            image: {
-              aspectRatio: "16:9"
-            }
-          }
-        }
+        ]
       })
     }
   );
