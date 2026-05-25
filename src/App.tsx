@@ -30,6 +30,7 @@ const FAST_TEST_SECONDS_OPTIONS = [5, 8] as const;
 const FAST_TEST_LIMIT = 20;
 const FAST_TEST_MAX_MISTAKES = 3;
 const FAST_TEST_FEEDBACK_MS = 750;
+const FAST_TEST_CUE_INTRO_MS = 850;
 type FastTestSeconds = (typeof FAST_TEST_SECONDS_OPTIONS)[number];
 type FastTestCategory = Situation["category"] | "all";
 
@@ -212,7 +213,7 @@ function App() {
 }
 
 type TestRun = {
-  status: "running" | "finished";
+  status: "ready" | "running" | "finished";
   queue: Situation[];
   index: number;
   correct: number;
@@ -226,8 +227,9 @@ type TestRun = {
 function FastTestView() {
   const [seconds, setSeconds] = useState<FastTestSeconds>(5);
   const [category, setCategory] = useState<FastTestCategory>("all");
-  const [run, setRun] = useState<TestRun>(() => createFastTestRun(getFastTestPool("all")));
-  const [cueStartedAt, setCueStartedAt] = useState<number | null>(() => Date.now());
+  const [run, setRun] = useState<TestRun>(() => createReadyTestRun(getFastTestPool("all")));
+  const [cueStartedAt, setCueStartedAt] = useState<number | null>(null);
+  const [cueIntroUntil, setCueIntroUntil] = useState<number | null>(null);
   const [testResetKey, setTestResetKey] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -240,16 +242,30 @@ function FastTestView() {
   const deadlineAt = run.status === "running" && cueStartedAt ? cueStartedAt + targetMs : null;
   const remainingMs = deadlineAt ? Math.max(0, deadlineAt - now) : targetMs;
   const score = run.attempts ? Math.round((run.correct / run.attempts) * 100) : 0;
+  const introIsVisible = run.status === "running" && cueIntroUntil !== null;
   const autoStartKey =
-    currentSituation && cueStartedAt && run.status === "running" && !isSubmitting && !hasResultFlash
+    currentSituation && cueStartedAt && run.status === "running" && !introIsVisible && !isSubmitting && !hasResultFlash
       ? `${currentSituation.id}-${cueStartedAt}-${seconds}`
       : null;
 
   useEffect(() => {
-    if (run.status !== "running" || !cueStartedAt) return;
+    if (run.status !== "running" || (!cueStartedAt && !cueIntroUntil)) return;
     const interval = window.setInterval(() => setNow(Date.now()), 80);
     return () => window.clearInterval(interval);
-  }, [run.status, cueStartedAt]);
+  }, [run.status, cueStartedAt, cueIntroUntil]);
+
+  useEffect(() => {
+    if (run.status !== "running" || !cueIntroUntil) return;
+
+    const timeout = window.setTimeout(() => {
+      const startedAt = Date.now();
+      setCueStartedAt(startedAt);
+      setCueIntroUntil(null);
+      setNow(startedAt);
+    }, Math.max(0, cueIntroUntil - Date.now()));
+
+    return () => window.clearTimeout(timeout);
+  }, [run.status, cueIntroUntil]);
 
   useEffect(() => {
     if (run.status !== "running" || !cueStartedAt || run.lastMessage || run.lastResult) return;
@@ -276,7 +292,8 @@ function FastTestView() {
   function startTest(nextSeconds = seconds, nextCategory = category) {
     const startedAt = Date.now();
     setRun(createFastTestRun(getFastTestPool(nextCategory)));
-    setCueStartedAt(startedAt);
+    setCueStartedAt(null);
+    setCueIntroUntil(startedAt + FAST_TEST_CUE_INTRO_MS);
     setNow(startedAt);
     setIsRecording(false);
     setIsSubmitting(false);
@@ -286,12 +303,23 @@ function FastTestView() {
 
   function handleSecondsChange(nextSeconds: FastTestSeconds) {
     setSeconds(nextSeconds);
-    startTest(nextSeconds, category);
+    resetTest(nextSeconds, category);
   }
 
   function handleCategoryChange(nextCategory: FastTestCategory) {
     setCategory(nextCategory);
-    startTest(seconds, nextCategory);
+    resetTest(seconds, nextCategory);
+  }
+
+  function resetTest(nextSeconds = seconds, nextCategory = category) {
+    setRun(createReadyTestRun(getFastTestPool(nextCategory)));
+    setCueStartedAt(null);
+    setCueIntroUntil(null);
+    setNow(Date.now());
+    setIsRecording(false);
+    setIsSubmitting(false);
+    setError(null);
+    setTestResetKey((key) => key + 1);
   }
 
   async function handleTestRecordingStop(audioBlob: Blob, responseTimeMs: number) {
@@ -330,6 +358,7 @@ function FastTestView() {
 
   function recordTestMistake(message: string) {
     setCueStartedAt(null);
+    setCueIntroUntil(null);
     setIsRecording(false);
     setRun((previous) => advanceTestRun(previous, false, message, null));
   }
@@ -342,8 +371,10 @@ function FastTestView() {
       lastPassed: null,
       lastMessage: null
     }));
-    setCueStartedAt(Date.now());
-    setNow(Date.now());
+    const introStartedAt = Date.now();
+    setCueStartedAt(null);
+    setCueIntroUntil(introStartedAt + FAST_TEST_CUE_INTRO_MS);
+    setNow(introStartedAt);
     setError(null);
   }
 
@@ -384,6 +415,27 @@ function FastTestView() {
         <section className="test-result-panel">
           <span className="eyebrow">Fast Test</span>
           <p>No cues are available for this topic yet.</p>
+        </section>
+      </section>
+    );
+  }
+
+  if (run.status === "ready") {
+    return (
+      <section className="fast-test-layout">
+        {controls}
+        <section className="test-start-panel">
+          <div>
+            <span className="eyebrow">Fast Test</span>
+            <h2>Ready for {run.queue.length} random cues.</h2>
+            <p>
+              {seconds} seconds each. The test stops after {FAST_TEST_MAX_MISTAKES} mistakes.
+            </p>
+          </div>
+          <button className="primary-button" type="button" onClick={() => startTest()}>
+            <PlayCircle size={18} aria-hidden="true" />
+            Start test
+          </button>
         </section>
       </section>
     );
@@ -437,6 +489,13 @@ function FastTestView() {
             <span>{currentSituation.category.replace("-", " ")}</span>
             <h2>{currentSituation.prompt}</h2>
           </div>
+          {introIsVisible ? (
+            <div className="test-flash cue-intro" aria-live="polite">
+              <small>Next cue</small>
+              <span>{run.index + 1}</span>
+              <strong>of {run.queue.length}</strong>
+            </div>
+          ) : null}
           {isSubmitting ? (
             <div className="test-flash checking" aria-live="polite">
               <span>Checking...</span>
@@ -461,7 +520,7 @@ function FastTestView() {
           autoStartKey={autoStartKey}
           resetKey={testResetKey}
           keepStreamAlive
-          disabled={isSubmitting || hasResultFlash}
+          disabled={run.status !== "running" || introIsVisible || isSubmitting || hasResultFlash}
           responseStartedAt={cueStartedAt}
           stopAt={deadlineAt}
           onRecordingStart={() => setIsRecording(true)}
@@ -552,6 +611,13 @@ function createFastTestRun(pool: Situation[]): TestRun {
     lastResult: null,
     lastPassed: null,
     lastMessage: null
+  };
+}
+
+function createReadyTestRun(pool: Situation[]): TestRun {
+  return {
+    ...createFastTestRun(pool),
+    status: "ready"
   };
 }
 

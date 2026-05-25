@@ -664,6 +664,13 @@ button {
   line-height: 1.05;
 }
 
+.test-start-panel p {
+  margin: 12px 0 0;
+  color: #61756e;
+  font-size: 1rem;
+  font-weight: 780;
+}
+
 .fast-test-layout {
   display: grid;
   gap: 12px;
@@ -825,6 +832,19 @@ button {
 
 .test-flash.checking {
   background: rgba(31, 58, 78, 0.72);
+}
+
+.test-flash.cue-intro {
+  background: rgba(20, 36, 31, 0.78);
+}
+
+.test-flash.cue-intro span {
+  font-size: clamp(4rem, 16vw, 8rem);
+  line-height: 0.82;
+}
+
+.test-flash.cue-intro strong {
+  font-size: clamp(1.15rem, 4vw, 2rem);
 }
 
 .test-message-panel {
