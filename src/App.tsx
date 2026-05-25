@@ -1,4 +1,4 @@
-import { BarChart3, Dumbbell, ListChecks, PlayCircle, RotateCcw, Trophy } from "lucide-react";
+import { BarChart3, CheckCircle2, Dumbbell, ListChecks, PlayCircle, RotateCcw, Trophy, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AudioRecorder } from "./components/AudioRecorder";
 import { FeedbackPanel } from "./components/FeedbackPanel";
@@ -26,10 +26,17 @@ import type { EvaluationResult, TrainingMode } from "./lib/scoring";
 
 type View = "train" | "test" | "review" | "stats";
 
-const FAST_TEST_SECONDS = 5;
-const FAST_TEST_MS = FAST_TEST_SECONDS * 1000;
+const FAST_TEST_SECONDS_OPTIONS = [5, 8] as const;
 const FAST_TEST_LIMIT = 20;
 const FAST_TEST_MAX_MISTAKES = 3;
+const FAST_TEST_FEEDBACK_MS = 750;
+type FastTestSeconds = (typeof FAST_TEST_SECONDS_OPTIONS)[number];
+type FastTestCategory = Situation["category"] | "all";
+
+const fastTestCategories: FastTestCategory[] = [
+  "all",
+  ...Array.from(new Set(situations.map((situation) => situation.category)))
+];
 
 function App() {
   const [view, setView] = useState<View>("train");
@@ -75,7 +82,7 @@ function App() {
     setError(null);
 
     try {
-      const evaluation = await submitAnswer(audioBlob, currentSituation, responseTimeMs);
+      const evaluation = await submitAnswer(audioBlob, currentSituation, responseTimeMs, targetMs);
       setResult(evaluation);
       setProgress((previous) => updateSituationProgress(previous, currentSituation.id, evaluation));
     } catch (caught) {
@@ -183,7 +190,7 @@ function App() {
         </section>
       ) : null}
 
-      {view === "test" ? <FastTestView onSpeak={speak} /> : null}
+      {view === "test" ? <FastTestView /> : null}
 
       {view === "review" ? (
         <ReviewView
@@ -205,7 +212,7 @@ function App() {
 }
 
 type TestRun = {
-  status: "idle" | "running" | "finished";
+  status: "running" | "finished";
   queue: Situation[];
   index: number;
   correct: number;
@@ -216,18 +223,27 @@ type TestRun = {
   lastMessage: string | null;
 };
 
-function FastTestView({ onSpeak }: { onSpeak: (text: string) => void }) {
-  const [run, setRun] = useState<TestRun>(() => createIdleTestRun());
-  const [cueStartedAt, setCueStartedAt] = useState<number | null>(null);
+function FastTestView() {
+  const [seconds, setSeconds] = useState<FastTestSeconds>(5);
+  const [category, setCategory] = useState<FastTestCategory>("all");
+  const [run, setRun] = useState<TestRun>(() => createFastTestRun(getFastTestPool("all")));
+  const [cueStartedAt, setCueStartedAt] = useState<number | null>(() => Date.now());
+  const [testResetKey, setTestResetKey] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
+  const targetMs = seconds * 1000;
   const currentSituation = run.queue[run.index];
-  const deadlineAt = cueStartedAt ? cueStartedAt + FAST_TEST_MS : null;
-  const remainingMs = deadlineAt ? Math.max(0, deadlineAt - now) : FAST_TEST_MS;
+  const hasResultFlash = run.lastPassed !== null || Boolean(run.lastMessage || run.lastResult);
+  const deadlineAt = run.status === "running" && cueStartedAt ? cueStartedAt + targetMs : null;
+  const remainingMs = deadlineAt ? Math.max(0, deadlineAt - now) : targetMs;
   const score = run.attempts ? Math.round((run.correct / run.attempts) * 100) : 0;
+  const autoStartKey =
+    currentSituation && cueStartedAt && run.status === "running" && !isSubmitting && !hasResultFlash
+      ? `${currentSituation.id}-${cueStartedAt}-${seconds}`
+      : null;
 
   useEffect(() => {
     if (run.status !== "running" || !cueStartedAt) return;
@@ -240,38 +256,50 @@ function FastTestView({ onSpeak }: { onSpeak: (text: string) => void }) {
 
     const timeout = window.setTimeout(() => {
       if (!isRecording && !isSubmitting) {
-        recordTestMistake("Too slow. Answer inside 5 seconds.");
+        recordTestMistake(`Too slow. Answer inside ${seconds} seconds.`);
       }
-    }, Math.max(0, cueStartedAt + FAST_TEST_MS - Date.now() + 80));
+    }, Math.max(0, cueStartedAt + targetMs - Date.now() + 80));
 
     return () => window.clearTimeout(timeout);
-  }, [run.status, cueStartedAt, run.lastMessage, run.lastResult, isRecording, isSubmitting]);
+  }, [run.status, cueStartedAt, run.lastMessage, run.lastResult, isRecording, isSubmitting, seconds, targetMs]);
 
-  function startTest() {
-    setRun({
-      status: "running",
-      queue: shuffleSituations(situations).slice(0, FAST_TEST_LIMIT),
-      index: 0,
-      correct: 0,
-      mistakes: 0,
-      attempts: 0,
-      lastResult: null,
-      lastPassed: null,
-      lastMessage: null
-    });
-    setCueStartedAt(Date.now());
-    setNow(Date.now());
+  useEffect(() => {
+    if (run.status !== "running" || run.lastPassed === null) return;
+
+    const timeout = window.setTimeout(() => {
+      nextCue();
+    }, FAST_TEST_FEEDBACK_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [run.status, run.lastPassed, run.attempts]);
+
+  function startTest(nextSeconds = seconds, nextCategory = category) {
+    const startedAt = Date.now();
+    setRun(createFastTestRun(getFastTestPool(nextCategory)));
+    setCueStartedAt(startedAt);
+    setNow(startedAt);
     setIsRecording(false);
     setIsSubmitting(false);
     setError(null);
+    setTestResetKey((key) => key + 1);
+  }
+
+  function handleSecondsChange(nextSeconds: FastTestSeconds) {
+    setSeconds(nextSeconds);
+    startTest(nextSeconds, category);
+  }
+
+  function handleCategoryChange(nextCategory: FastTestCategory) {
+    setCategory(nextCategory);
+    startTest(seconds, nextCategory);
   }
 
   async function handleTestRecordingStop(audioBlob: Blob, responseTimeMs: number) {
     setIsRecording(false);
     if (!currentSituation) return;
 
-    if (responseTimeMs > FAST_TEST_MS) {
-      recordTestMistake("Too slow. Answer inside 5 seconds.");
+    if (responseTimeMs > targetMs + 400) {
+      recordTestMistake(`Too slow. Answer inside ${seconds} seconds.`);
       return;
     }
 
@@ -280,7 +308,7 @@ function FastTestView({ onSpeak }: { onSpeak: (text: string) => void }) {
     setCueStartedAt(null);
 
     try {
-      const evaluation = await submitAnswer(audioBlob, currentSituation, responseTimeMs);
+      const evaluation = await submitAnswer(audioBlob, currentSituation, responseTimeMs, targetMs);
       recordTestEvaluation(evaluation);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not evaluate this answer.");
@@ -292,7 +320,12 @@ function FastTestView({ onSpeak }: { onSpeak: (text: string) => void }) {
 
   function recordTestEvaluation(evaluation: EvaluationResult) {
     const passed = evaluation.passed && evaluation.speed >= 75;
-    setRun((previous) => advanceTestRun(previous, passed, passed ? null : "Not correct for this cue.", evaluation));
+    const message = passed
+      ? "Accepted"
+      : evaluation.error_type === "wrong_meaning"
+        ? "Wrong meaning"
+        : "Try a clearer phrase";
+    setRun((previous) => advanceTestRun(previous, passed, message, evaluation));
   }
 
   function recordTestMistake(message: string) {
@@ -314,44 +347,75 @@ function FastTestView({ onSpeak }: { onSpeak: (text: string) => void }) {
     setError(null);
   }
 
-  if (run.status === "idle") {
-    return (
-      <section className="test-start-panel">
-        <div>
-          <span className="eyebrow">Fast Test</span>
-          <h2>Random cues. 5 seconds each. 3 mistakes ends the test.</h2>
+  const controls = (
+    <div className="test-controls" aria-label="Fast test settings">
+      <div className="test-control-group">
+        <span>Seconds</span>
+        <div className="segmented-control" aria-label="Seconds per cue">
+          {FAST_TEST_SECONDS_OPTIONS.map((option) => (
+            <button
+              className={seconds === option ? "active" : ""}
+              key={option}
+              type="button"
+              onClick={() => handleSecondsChange(option)}
+            >
+              {option}s
+            </button>
+          ))}
         </div>
-        <button className="primary-button" type="button" onClick={startTest}>
-          <PlayCircle size={18} aria-hidden="true" />
-          Start fast test
-        </button>
+      </div>
+      <label className="test-control-group">
+        <span>Topic</span>
+        <select value={category} onChange={(event) => handleCategoryChange(event.target.value as FastTestCategory)}>
+          {fastTestCategories.map((item) => (
+            <option key={item} value={item}>
+              {formatCategoryLabel(item)} ({getFastTestPool(item).length})
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+
+  if (!run.queue.length) {
+    return (
+      <section className="fast-test-layout">
+        {controls}
+        <section className="test-result-panel">
+          <span className="eyebrow">Fast Test</span>
+          <p>No cues are available for this topic yet.</p>
+        </section>
       </section>
     );
   }
 
   if (run.status === "finished") {
     return (
-      <section className="test-result-panel">
-        <span className="eyebrow">Fast Test Score</span>
-        <strong>{score}%</strong>
-        <p>
-          {run.correct} correct / {run.attempts} attempts. Mistakes: {run.mistakes}.
-        </p>
-        <button className="primary-button" type="button" onClick={startTest}>
-          Try again
-        </button>
+      <section className="fast-test-layout">
+        {controls}
+        <section className="test-result-panel">
+          <span className="eyebrow">Fast Test Score</span>
+          <strong>{score}%</strong>
+          <p>
+            {run.correct} correct / {run.attempts} attempts. Mistakes: {run.mistakes}.
+          </p>
+          <button className="primary-button" type="button" onClick={() => startTest()}>
+            Try again
+          </button>
+        </section>
       </section>
     );
   }
 
-  const canMoveNext = Boolean(run.lastResult || run.lastMessage);
-  const isLastCue = run.index >= run.queue.length - 1;
-
   return (
     <section className="fast-test-layout">
+      {controls}
       <div className="test-score-strip">
         <span>
           Cue <strong>{run.index + 1}</strong>/{run.queue.length}
+        </span>
+        <span>
+          Time <strong>{seconds}s</strong>
         </span>
         <span>
           Correct <strong>{run.correct}</strong>
@@ -373,6 +437,18 @@ function FastTestView({ onSpeak }: { onSpeak: (text: string) => void }) {
             <span>{currentSituation.category.replace("-", " ")}</span>
             <h2>{currentSituation.prompt}</h2>
           </div>
+          {isSubmitting ? (
+            <div className="test-flash checking" aria-live="polite">
+              <span>Checking...</span>
+            </div>
+          ) : null}
+          {run.lastPassed !== null ? (
+            <div className={`test-flash ${run.lastPassed ? "accepted" : "missed"}`} aria-live="polite">
+              {run.lastPassed ? <CheckCircle2 size={58} aria-hidden="true" /> : <XCircle size={58} aria-hidden="true" />}
+              <span>{run.lastPassed ? "Accepted" : "Mistake"}</span>
+              <small>{run.lastMessage}</small>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -382,7 +458,10 @@ function FastTestView({ onSpeak }: { onSpeak: (text: string) => void }) {
           <small>seconds</small>
         </div>
         <AudioRecorder
-          disabled={isSubmitting || canMoveNext}
+          autoStartKey={autoStartKey}
+          resetKey={testResetKey}
+          keepStreamAlive
+          disabled={isSubmitting || hasResultFlash}
           responseStartedAt={cueStartedAt}
           stopAt={deadlineAt}
           onRecordingStart={() => setIsRecording(true)}
@@ -390,24 +469,10 @@ function FastTestView({ onSpeak }: { onSpeak: (text: string) => void }) {
         />
       </div>
 
-      {isSubmitting || error || run.lastResult ? (
-        <FeedbackPanel
-          result={run.lastResult}
-          isSubmitting={isSubmitting}
-          error={error}
-          onRetry={startTest}
-          onNext={isLastCue ? startTest : nextCue}
-          onSpeak={onSpeak}
-        />
-      ) : null}
-
-      {run.lastMessage ? (
+      {error ? (
         <section className="test-message-panel">
-          <h2>{run.lastPassed ? "Correct" : "Mistake"}</h2>
-          <p>{run.lastMessage}</p>
-          <button className="primary-button" type="button" onClick={isLastCue ? startTest : nextCue}>
-            {isLastCue ? "New test" : "Next cue"}
-          </button>
+          <h2>Check failed</h2>
+          <p>{error}</p>
         </section>
       ) : null}
     </section>
@@ -476,10 +541,10 @@ function StatsView({ progress, onReset }: { progress: ProgressState; onReset: ()
   );
 }
 
-function createIdleTestRun(): TestRun {
+function createFastTestRun(pool: Situation[]): TestRun {
   return {
-    status: "idle",
-    queue: [],
+    status: "running",
+    queue: shuffleSituations(pool).slice(0, FAST_TEST_LIMIT),
     index: 0,
     correct: 0,
     mistakes: 0,
@@ -488,6 +553,18 @@ function createIdleTestRun(): TestRun {
     lastPassed: null,
     lastMessage: null
   };
+}
+
+function getFastTestPool(category: FastTestCategory) {
+  return category === "all" ? situations : situations.filter((situation) => situation.category === category);
+}
+
+function formatCategoryLabel(category: FastTestCategory) {
+  if (category === "all") return "All topics";
+  return category
+    .split("-")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function advanceTestRun(

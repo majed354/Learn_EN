@@ -1,8 +1,11 @@
 import { Mic, Square } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type AudioRecorderProps = {
   disabled?: boolean;
+  autoStartKey?: string | number | null;
+  resetKey?: string | number | null;
+  keepStreamAlive?: boolean;
   responseStartedAt?: number | null;
   stopAt?: number | null;
   onRecordingStart: (startedAt: number) => void;
@@ -11,6 +14,9 @@ type AudioRecorderProps = {
 
 export function AudioRecorder({
   disabled,
+  autoStartKey,
+  resetKey,
+  keepStreamAlive,
   responseStartedAt,
   stopAt,
   onRecordingStart,
@@ -19,25 +25,61 @@ export function AudioRecorder({
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number>(0);
   const streamRef = useRef<MediaStream | null>(null);
   const autoStopRef = useRef<number | null>(null);
+  const autoStartedKeyRef = useRef<string | number | null>(null);
+  const isStartingRef = useRef(false);
+  const sendOnStopRef = useRef(true);
+  const recordingSessionRef = useRef(0);
+
+  useEffect(() => {
+    if (resetKey == null) return;
+    autoStartedKeyRef.current = null;
+    sendOnStopRef.current = false;
+    if (autoStopRef.current) {
+      window.clearTimeout(autoStopRef.current);
+      autoStopRef.current = null;
+    }
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    setIsRecording(false);
+  }, [resetKey]);
+
+  useEffect(() => {
+    if (!autoStartKey || disabled || isRecording || autoStartedKeyRef.current === autoStartKey) return;
+    autoStartedKeyRef.current = autoStartKey;
+    void startRecording();
+  }, [autoStartKey, disabled, isRecording]);
+
+  useEffect(() => {
+    return () => {
+      sendOnStopRef.current = false;
+      if (autoStopRef.current) window.clearTimeout(autoStopRef.current);
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
 
   async function startRecording() {
+    if (isRecording || isStartingRef.current) return;
+    isStartingRef.current = true;
+    sendOnStopRef.current = true;
     setError(null);
     if (stopAt && Date.now() >= stopAt) {
       setError("Time is up. Go to the next cue.");
+      isStartingRef.current = false;
       return;
     }
 
     if (!window.isSecureContext) {
       setError("Open the site with HTTPS. Browsers block microphone access on insecure pages.");
+      isStartingRef.current = false;
       return;
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("Microphone recording is not supported in this browser.");
+      isStartingRef.current = false;
       return;
     }
 
@@ -45,39 +87,49 @@ export function AudioRecorder({
       const permissionState = await getMicrophonePermissionState();
       if (permissionState === "denied") {
         setError("Microphone is blocked in site settings. Change it to Allow, then reload.");
+        isStartingRef.current = false;
         return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true
-        }
-      });
+      const reusableStream = getActiveAudioStream(streamRef.current);
+      const stream =
+        reusableStream ??
+        (await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true
+          }
+        }));
       const recorder = createRecorder(stream);
-      chunksRef.current = [];
+      const sessionId = recordingSessionRef.current + 1;
+      recordingSessionRef.current = sessionId;
+      const chunks: Blob[] = [];
       streamRef.current = stream;
       recorderRef.current = recorder;
       startedAtRef.current = Date.now();
 
       recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunksRef.current.push(event.data);
+        if (event.data.size > 0) chunks.push(event.data);
       };
 
       recorder.onstop = () => {
-        if (autoStopRef.current) {
+        const isCurrentSession = recordingSessionRef.current === sessionId;
+        if (isCurrentSession && autoStopRef.current) {
           window.clearTimeout(autoStopRef.current);
           autoStopRef.current = null;
         }
         const type = recorder.mimeType || "audio/webm";
-        const audioBlob = new Blob(chunksRef.current, { type });
+        const audioBlob = new Blob(chunks, { type });
         const responseTimeMs = Date.now() - (responseStartedAt ?? startedAtRef.current);
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-        setIsRecording(false);
-        onRecordingStop(audioBlob, responseTimeMs);
+        if (!keepStreamAlive && isCurrentSession) streamRef.current?.getTracks().forEach((track) => track.stop());
+        if (isCurrentSession) setIsRecording(false);
+        if (sendOnStopRef.current && isCurrentSession) {
+          onRecordingStop(audioBlob, responseTimeMs);
+        }
       };
 
       recorder.start();
+      isStartingRef.current = false;
       setIsRecording(true);
       onRecordingStart(startedAtRef.current);
 
@@ -90,7 +142,8 @@ export function AudioRecorder({
         window.clearTimeout(autoStopRef.current);
         autoStopRef.current = null;
       }
-      streamRef.current?.getTracks().forEach((track) => track.stop());
+      if (!keepStreamAlive) streamRef.current?.getTracks().forEach((track) => track.stop());
+      isStartingRef.current = false;
       setIsRecording(false);
       setError(getMicrophoneErrorMessage(caught));
     }
@@ -144,6 +197,11 @@ function createRecorder(stream: MediaStream) {
   ].find((type) => MediaRecorder.isTypeSupported(type));
 
   return supportedType ? new MediaRecorder(stream, { mimeType: supportedType }) : new MediaRecorder(stream);
+}
+
+function getActiveAudioStream(stream: MediaStream | null) {
+  if (!stream) return null;
+  return stream.getAudioTracks().some((track) => track.readyState === "live") ? stream : null;
 }
 
 function getMicrophoneErrorMessage(error: unknown) {

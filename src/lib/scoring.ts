@@ -21,10 +21,11 @@ export type EvaluationResult = {
   mode?: "live" | "demo" | "heuristic";
 };
 
-export function speedScore(responseTimeMs: number) {
-  if (responseTimeMs <= 3000) return 100;
-  if (responseTimeMs <= 5000) return 75;
-  if (responseTimeMs <= 7000) return 50;
+export function speedScore(responseTimeMs: number, targetMs = 5000) {
+  const target = Math.max(2500, targetMs);
+  if (responseTimeMs <= target * 0.6) return 100;
+  if (responseTimeMs <= target) return 75;
+  if (responseTimeMs <= target * 1.4) return 50;
   return 20;
 }
 

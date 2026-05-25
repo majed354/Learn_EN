@@ -638,6 +638,7 @@ button {
 .test-start-panel,
 .test-result-panel,
 .test-score-strip,
+.test-controls,
 .test-card,
 .test-message-panel {
   background: rgba(255, 255, 255, 0.94);
@@ -668,9 +669,63 @@ button {
   gap: 12px;
 }
 
+.test-controls {
+  padding: 10px;
+  display: grid;
+  grid-template-columns: auto minmax(220px, 320px);
+  gap: 10px;
+  align-items: end;
+}
+
+.test-control-group {
+  display: grid;
+  gap: 6px;
+  color: #60746d;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.segmented-control {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(56px, 1fr));
+  gap: 4px;
+  padding: 4px;
+  background: #dfe8e4;
+  border: 1px solid #c9d6d0;
+  border-radius: 8px;
+}
+
+.segmented-control button,
+.test-control-group select {
+  min-height: 40px;
+  border: 0;
+  border-radius: 6px;
+  color: #284139;
+  background: transparent;
+  font-weight: 900;
+}
+
+.segmented-control button {
+  cursor: pointer;
+}
+
+.segmented-control button.active,
+.test-control-group select {
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(22, 39, 34, 0.12);
+}
+
+.test-control-group select {
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid #c9d6d0;
+  appearance: auto;
+}
+
 .test-score-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   padding: 12px;
 }
@@ -690,6 +745,7 @@ button {
 
 .test-card {
   overflow: hidden;
+  position: relative;
 }
 
 .test-image-wrap {
@@ -729,6 +785,46 @@ button {
 
 .test-practice-panel {
   grid-template-columns: 150px 1fr;
+}
+
+.test-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: #ffffff;
+  text-align: center;
+  background: rgba(15, 33, 28, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.test-flash svg {
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.22));
+}
+
+.test-flash span {
+  font-size: clamp(1.5rem, 5vw, 3rem);
+  font-weight: 950;
+}
+
+.test-flash small {
+  font-size: 0.95rem;
+  font-weight: 850;
+}
+
+.test-flash.accepted {
+  background: rgba(32, 116, 75, 0.78);
+}
+
+.test-flash.missed {
+  background: rgba(174, 62, 62, 0.78);
+}
+
+.test-flash.checking {
+  background: rgba(31, 58, 78, 0.72);
 }
 
 .test-message-panel {
@@ -1072,6 +1168,11 @@ button {
 
   .test-score-strip {
     gap: 6px;
+    padding: 8px;
+  }
+
+  .test-controls {
+    grid-template-columns: 1fr 1fr;
     padding: 8px;
   }
 

@@ -8,6 +8,7 @@ type SituationPayload = {
   targetMeaning: string;
   acceptableAnswers: string[];
   responseTimeMs: number;
+  targetResponseMs?: number;
 };
 
 type ModelEvaluation = {
@@ -45,7 +46,7 @@ export default async function handler(request: Request) {
 
     const situation = JSON.parse(rawSituation) as SituationPayload;
     const transcript = await transcribeAudio(audio);
-    const speed = speedScore(situation.responseTimeMs);
+    const speed = speedScore(situation.responseTimeMs, situation.targetResponseMs);
     const provider = (process.env.EVALUATOR_PROVIDER ?? "gemini").toLowerCase();
     const evaluation =
       provider === "ollama"

@@ -5,7 +5,8 @@ import { clampScore, speedScore } from "./scoring";
 export async function submitAnswer(
   audioBlob: Blob,
   situation: Situation,
-  responseTimeMs: number
+  responseTimeMs: number,
+  targetResponseMs?: number
 ): Promise<EvaluationResult> {
   const formData = new FormData();
   formData.append("audio", audioBlob, getAudioFileName(audioBlob.type));
@@ -16,7 +17,8 @@ export async function submitAnswer(
       prompt: situation.prompt,
       targetMeaning: situation.targetMeaning,
       acceptableAnswers: situation.acceptableAnswers,
-      responseTimeMs
+      responseTimeMs,
+      targetResponseMs
     })
   );
 
@@ -27,7 +29,7 @@ export async function submitAnswer(
 
   if (!response.ok) {
     if (import.meta.env.DEV) {
-      return demoEvaluation(situation, responseTimeMs);
+      return demoEvaluation(situation, responseTimeMs, targetResponseMs);
     }
     const message = await response.text();
     throw new Error(message || "Could not evaluate the answer.");
@@ -52,8 +54,8 @@ function getAudioFileName(type: string) {
   return "answer.webm";
 }
 
-function demoEvaluation(situation: Situation, responseTimeMs: number): EvaluationResult {
-  const speed = speedScore(responseTimeMs);
+function demoEvaluation(situation: Situation, responseTimeMs: number, targetResponseMs?: number): EvaluationResult {
+  const speed = speedScore(responseTimeMs, targetResponseMs);
   const meaning = 82;
   const grammar = 78;
   const naturalness = 76;
