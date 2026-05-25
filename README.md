@@ -15,7 +15,7 @@ The training screen avoids Arabic so the learner does not translate in their hea
 
 - React + Vite + TypeScript
 - Netlify Functions
-- OpenAI speech-to-text: `gpt-4o-mini-transcribe`
+- Gemini speech-to-text: `gemini-2.5-flash-lite`
 - Gemini evaluation: `gemini-2.5-flash-lite`
 - Gemini one-time image generation: `gemini-2.5-flash-image`
 - Browser SpeechSynthesis for playback
@@ -31,11 +31,11 @@ cp .env.example .env
 Add your keys to `.env`:
 
 ```text
-OPENAI_API_KEY=...
 GEMINI_API_KEY=...
-OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe
 GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_TRANSCRIBE_MODEL=gemini-2.5-flash-lite
 GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+TRANSCRIBE_PROVIDER=gemini
 EVALUATOR_PROVIDER=gemini
 ```
 
@@ -83,6 +83,16 @@ npm run images:generate -- --only=hotel --refresh
 
 The image prompts are in `scripts/image-prompts.json`.
 
+## Optional OpenAI Transcription
+
+The default setup uses Gemini only. If you later want OpenAI for speech-to-text, set:
+
+```text
+TRANSCRIBE_PROVIDER=openai
+OPENAI_API_KEY=...
+OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe
+```
+
 ## Optional Local Evaluator
 
 Gemini Flash-Lite is the recommended default because it is fast and deployable on Netlify.
@@ -128,11 +138,11 @@ All can be accepted if they handle the same situation.
 3. Build command: `npm run build`
 4. Publish directory: `dist`
 5. Add environment variables:
-   - `OPENAI_API_KEY`
    - `GEMINI_API_KEY`
-   - `OPENAI_TRANSCRIBE_MODEL`
    - `GEMINI_MODEL`
+   - `GEMINI_TRANSCRIBE_MODEL`
    - `GEMINI_IMAGE_MODEL`
+   - `TRANSCRIBE_PROVIDER=gemini`
    - `EVALUATOR_PROVIDER=gemini`
 
 ## Next Steps

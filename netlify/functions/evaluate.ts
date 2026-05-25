@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { clampScore, speedScore } from "../../src/lib/scoring";
 import type { ErrorType, EvaluationResult } from "../../src/lib/scoring";
 
@@ -25,6 +26,7 @@ const jsonHeaders = {
 };
 
 const DEFAULT_GEMINI_EVALUATION_MODEL = "gemini-2.5-flash-lite";
+const DEFAULT_GEMINI_TRANSCRIBE_MODEL = "gemini-2.5-flash-lite";
 const DEFAULT_OPENAI_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe";
 
 export default async function handler(request: Request) {
@@ -59,9 +61,18 @@ export default async function handler(request: Request) {
 }
 
 async function transcribeAudio(audio: Blob) {
+  const provider = (process.env.TRANSCRIBE_PROVIDER ?? "gemini").toLowerCase();
+  if (provider === "openai") {
+    return transcribeWithOpenAI(audio);
+  }
+
+  return transcribeWithGemini(audio);
+}
+
+async function transcribeWithOpenAI(audio: Blob) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is missing.");
+    throw new Error("OPENAI_API_KEY is missing. Set TRANSCRIBE_PROVIDER=gemini to use Gemini only.");
   }
 
   const model = process.env.OPENAI_TRANSCRIBE_MODEL ?? DEFAULT_OPENAI_TRANSCRIBE_MODEL;
@@ -83,6 +94,80 @@ async function transcribeAudio(audio: Blob) {
 
   const data = (await response.json()) as { text?: string };
   const transcript = data.text?.trim();
+  if (!transcript) {
+    throw new Error("No speech was detected.");
+  }
+
+  return transcript;
+}
+
+async function transcribeWithGemini(audio: Blob) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is missing.");
+  }
+
+  const model = process.env.GEMINI_TRANSCRIBE_MODEL ?? process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_TRANSCRIBE_MODEL;
+  const audioBase64 = Buffer.from(await audio.arrayBuffer()).toString("base64");
+  const mimeType = audio.type || "audio/webm";
+  const prompt = `Transcribe this short spoken English answer exactly.
+
+Rules:
+1. Return JSON only.
+2. Keep the transcript in English.
+3. If speech is unclear, return an empty transcript.
+4. Do not correct grammar.
+
+JSON schema:
+{
+  "transcript": string
+}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType,
+                  data: audioBase64
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0,
+          responseMimeType: "application/json"
+        }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, "Gemini transcription failed."));
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("").trim();
+  if (!text) {
+    throw new Error("Gemini returned an empty transcription.");
+  }
+
+  const parsed = parseJsonObject<{ transcript?: string }>(text);
+  const transcript = parsed.transcript?.trim();
   if (!transcript) {
     throw new Error("No speech was detected.");
   }
@@ -265,12 +350,18 @@ function normalizeEvaluation(
 }
 
 function parseModelEvaluation(text: string): ModelEvaluation {
+  return parseJsonObject<ModelEvaluation>(text);
+}
+
+function parseJsonObject<T>(text: string): T {
   const cleaned = text
     .replace(/^```json/i, "")
     .replace(/^```/, "")
     .replace(/```$/, "")
     .trim();
-  return JSON.parse(cleaned) as ModelEvaluation;
+  const jsonText = cleaned.startsWith("{") ? cleaned : cleaned.match(/\{[\s\S]*\}/)?.[0];
+  if (!jsonText) throw new Error("Model did not return JSON.");
+  return JSON.parse(jsonText) as T;
 }
 
 async function getErrorMessage(response: Response, fallback: string) {
