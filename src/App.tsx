@@ -1,4 +1,4 @@
-import { BarChart3, Dumbbell, ListChecks, RotateCcw, Trophy } from "lucide-react";
+import { BarChart3, Dumbbell, ListChecks, PlayCircle, RotateCcw, Trophy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AudioRecorder } from "./components/AudioRecorder";
 import { FeedbackPanel } from "./components/FeedbackPanel";
@@ -24,7 +24,12 @@ import type { ProgressState } from "./lib/progress";
 import { getTargetMs, trainingModes } from "./lib/scoring";
 import type { EvaluationResult, TrainingMode } from "./lib/scoring";
 
-type View = "train" | "review" | "stats";
+type View = "train" | "test" | "review" | "stats";
+
+const FAST_TEST_SECONDS = 5;
+const FAST_TEST_MS = FAST_TEST_SECONDS * 1000;
+const FAST_TEST_LIMIT = 20;
+const FAST_TEST_MAX_MISTAKES = 3;
 
 function App() {
   const [view, setView] = useState<View>("train");
@@ -121,6 +126,10 @@ function App() {
             <Dumbbell size={17} aria-hidden="true" />
             <span>Train</span>
           </button>
+          <button className={view === "test" ? "active" : ""} type="button" onClick={() => setView("test")}>
+            <PlayCircle size={17} aria-hidden="true" />
+            <span>Test</span>
+          </button>
           <button className={view === "review" ? "active" : ""} type="button" onClick={() => setView("review")}>
             <ListChecks size={17} aria-hidden="true" />
             <span>Review</span>
@@ -174,6 +183,8 @@ function App() {
         </section>
       ) : null}
 
+      {view === "test" ? <FastTestView onSpeak={speak} /> : null}
+
       {view === "review" ? (
         <ReviewView
           dueSituations={dueSituations}
@@ -190,6 +201,216 @@ function App() {
         <StatsView progress={progress} onReset={handleResetProgress} />
       ) : null}
     </main>
+  );
+}
+
+type TestRun = {
+  status: "idle" | "running" | "finished";
+  queue: Situation[];
+  index: number;
+  correct: number;
+  mistakes: number;
+  attempts: number;
+  lastResult: EvaluationResult | null;
+  lastPassed: boolean | null;
+  lastMessage: string | null;
+};
+
+function FastTestView({ onSpeak }: { onSpeak: (text: string) => void }) {
+  const [run, setRun] = useState<TestRun>(() => createIdleTestRun());
+  const [cueStartedAt, setCueStartedAt] = useState<number | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  const currentSituation = run.queue[run.index];
+  const deadlineAt = cueStartedAt ? cueStartedAt + FAST_TEST_MS : null;
+  const remainingMs = deadlineAt ? Math.max(0, deadlineAt - now) : FAST_TEST_MS;
+  const score = run.attempts ? Math.round((run.correct / run.attempts) * 100) : 0;
+
+  useEffect(() => {
+    if (run.status !== "running" || !cueStartedAt) return;
+    const interval = window.setInterval(() => setNow(Date.now()), 80);
+    return () => window.clearInterval(interval);
+  }, [run.status, cueStartedAt]);
+
+  useEffect(() => {
+    if (run.status !== "running" || !cueStartedAt || run.lastMessage || run.lastResult) return;
+
+    const timeout = window.setTimeout(() => {
+      if (!isRecording && !isSubmitting) {
+        recordTestMistake("Too slow. Answer inside 5 seconds.");
+      }
+    }, Math.max(0, cueStartedAt + FAST_TEST_MS - Date.now() + 80));
+
+    return () => window.clearTimeout(timeout);
+  }, [run.status, cueStartedAt, run.lastMessage, run.lastResult, isRecording, isSubmitting]);
+
+  function startTest() {
+    setRun({
+      status: "running",
+      queue: shuffleSituations(situations).slice(0, FAST_TEST_LIMIT),
+      index: 0,
+      correct: 0,
+      mistakes: 0,
+      attempts: 0,
+      lastResult: null,
+      lastPassed: null,
+      lastMessage: null
+    });
+    setCueStartedAt(Date.now());
+    setNow(Date.now());
+    setIsRecording(false);
+    setIsSubmitting(false);
+    setError(null);
+  }
+
+  async function handleTestRecordingStop(audioBlob: Blob, responseTimeMs: number) {
+    setIsRecording(false);
+    if (!currentSituation) return;
+
+    if (responseTimeMs > FAST_TEST_MS) {
+      recordTestMistake("Too slow. Answer inside 5 seconds.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setCueStartedAt(null);
+
+    try {
+      const evaluation = await submitAnswer(audioBlob, currentSituation, responseTimeMs);
+      recordTestEvaluation(evaluation);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not evaluate this answer.");
+      recordTestMistake("Could not evaluate this answer.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function recordTestEvaluation(evaluation: EvaluationResult) {
+    const passed = evaluation.passed && evaluation.speed >= 75;
+    setRun((previous) => advanceTestRun(previous, passed, passed ? null : "Not correct for this cue.", evaluation));
+  }
+
+  function recordTestMistake(message: string) {
+    setCueStartedAt(null);
+    setIsRecording(false);
+    setRun((previous) => advanceTestRun(previous, false, message, null));
+  }
+
+  function nextCue() {
+    setRun((previous) => ({
+      ...previous,
+      index: previous.index + 1,
+      lastResult: null,
+      lastPassed: null,
+      lastMessage: null
+    }));
+    setCueStartedAt(Date.now());
+    setNow(Date.now());
+    setError(null);
+  }
+
+  if (run.status === "idle") {
+    return (
+      <section className="test-start-panel">
+        <div>
+          <span className="eyebrow">Fast Test</span>
+          <h2>Random cues. 5 seconds each. 3 mistakes ends the test.</h2>
+        </div>
+        <button className="primary-button" type="button" onClick={startTest}>
+          <PlayCircle size={18} aria-hidden="true" />
+          Start fast test
+        </button>
+      </section>
+    );
+  }
+
+  if (run.status === "finished") {
+    return (
+      <section className="test-result-panel">
+        <span className="eyebrow">Fast Test Score</span>
+        <strong>{score}%</strong>
+        <p>
+          {run.correct} correct / {run.attempts} attempts. Mistakes: {run.mistakes}.
+        </p>
+        <button className="primary-button" type="button" onClick={startTest}>
+          Try again
+        </button>
+      </section>
+    );
+  }
+
+  const canMoveNext = Boolean(run.lastResult || run.lastMessage);
+  const isLastCue = run.index >= run.queue.length - 1;
+
+  return (
+    <section className="fast-test-layout">
+      <div className="test-score-strip">
+        <span>
+          Cue <strong>{run.index + 1}</strong>/{run.queue.length}
+        </span>
+        <span>
+          Correct <strong>{run.correct}</strong>
+        </span>
+        <span>
+          Mistakes <strong>{run.mistakes}/{FAST_TEST_MAX_MISTAKES}</strong>
+        </span>
+        <span>
+          Score <strong>{score}%</strong>
+        </span>
+      </div>
+
+      {currentSituation ? (
+        <div className="test-card">
+          <div className="test-image-wrap">
+            <SituationImage className="test-image" situation={currentSituation} />
+          </div>
+          <div className="test-prompt">
+            <span>{currentSituation.category.replace("-", " ")}</span>
+            <h2>{currentSituation.prompt}</h2>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="practice-panel test-practice-panel">
+        <div className={`timer ${remainingMs === 0 ? "over" : ""}`}>
+          <span>{(remainingMs / 1000).toFixed(1)}</span>
+          <small>seconds</small>
+        </div>
+        <AudioRecorder
+          disabled={isSubmitting || canMoveNext}
+          responseStartedAt={cueStartedAt}
+          stopAt={deadlineAt}
+          onRecordingStart={() => setIsRecording(true)}
+          onRecordingStop={handleTestRecordingStop}
+        />
+      </div>
+
+      {isSubmitting || error || run.lastResult ? (
+        <FeedbackPanel
+          result={run.lastResult}
+          isSubmitting={isSubmitting}
+          error={error}
+          onRetry={startTest}
+          onNext={isLastCue ? startTest : nextCue}
+          onSpeak={onSpeak}
+        />
+      ) : null}
+
+      {run.lastMessage ? (
+        <section className="test-message-panel">
+          <h2>{run.lastPassed ? "Correct" : "Mistake"}</h2>
+          <p>{run.lastMessage}</p>
+          <button className="primary-button" type="button" onClick={isLastCue ? startTest : nextCue}>
+            {isLastCue ? "New test" : "Next cue"}
+          </button>
+        </section>
+      ) : null}
+    </section>
   );
 }
 
@@ -253,6 +474,52 @@ function StatsView({ progress, onReset }: { progress: ProgressState; onReset: ()
       </button>
     </section>
   );
+}
+
+function createIdleTestRun(): TestRun {
+  return {
+    status: "idle",
+    queue: [],
+    index: 0,
+    correct: 0,
+    mistakes: 0,
+    attempts: 0,
+    lastResult: null,
+    lastPassed: null,
+    lastMessage: null
+  };
+}
+
+function advanceTestRun(
+  previous: TestRun,
+  passed: boolean,
+  message: string | null,
+  result: EvaluationResult | null
+): TestRun {
+  const attempts = previous.attempts + 1;
+  const correct = previous.correct + (passed ? 1 : 0);
+  const mistakes = previous.mistakes + (passed ? 0 : 1);
+  const finished = mistakes >= FAST_TEST_MAX_MISTAKES || attempts >= previous.queue.length;
+
+  return {
+    ...previous,
+    status: finished ? "finished" : "running",
+    attempts,
+    correct,
+    mistakes,
+    lastResult: result,
+    lastPassed: passed,
+    lastMessage: message
+  };
+}
+
+function shuffleSituations(items: Situation[]) {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
 }
 
 function getNextSituation(current: Situation, progress: ProgressState) {

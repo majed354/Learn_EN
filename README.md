@@ -129,6 +129,21 @@ Each situation is tracked locally:
 
 The dashboard shows overall mastery, automatic situations, review count, success rate, and category progress.
 
+## Four-Stage Content Plan
+
+The full practical core is planned as 1,000 visual speaking situations:
+
+- Stage 1: 250 everyday survival situations for travel, services, payment, directions, emergencies, and small talk.
+- Stage 2: 250 daily life and workplace situations.
+- Stage 3: 250 longer social, study, and service conversations.
+- Stage 4: 250 fluency pressure tests, mixed scenarios, and role-play prompts.
+
+The current app includes the first 100 situations from Stage 1.
+
+## Fast Test
+
+Fast Test shows random cues. Each cue must be answered within 5 seconds. Three mistakes end the test and the app shows the score.
+
 ## Flexible Answers
 
 Answers are evaluated by target meaning, not exact wording. Synonyms, paraphrases, shorter natural answers, and different polite forms should pass when they solve the situation.

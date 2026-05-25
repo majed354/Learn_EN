@@ -3,20 +3,34 @@ import { useRef, useState } from "react";
 
 type AudioRecorderProps = {
   disabled?: boolean;
+  responseStartedAt?: number | null;
+  stopAt?: number | null;
   onRecordingStart: (startedAt: number) => void;
   onRecordingStop: (audioBlob: Blob, responseTimeMs: number) => void;
 };
 
-export function AudioRecorder({ disabled, onRecordingStart, onRecordingStop }: AudioRecorderProps) {
+export function AudioRecorder({
+  disabled,
+  responseStartedAt,
+  stopAt,
+  onRecordingStart,
+  onRecordingStop
+}: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number>(0);
   const streamRef = useRef<MediaStream | null>(null);
+  const autoStopRef = useRef<number | null>(null);
 
   async function startRecording() {
     setError(null);
+    if (stopAt && Date.now() >= stopAt) {
+      setError("Time is up. Go to the next cue.");
+      return;
+    }
+
     if (!window.isSecureContext) {
       setError("Open the site with HTTPS. Browsers block microphone access on insecure pages.");
       return;
@@ -51,9 +65,13 @@ export function AudioRecorder({ disabled, onRecordingStart, onRecordingStop }: A
       };
 
       recorder.onstop = () => {
+        if (autoStopRef.current) {
+          window.clearTimeout(autoStopRef.current);
+          autoStopRef.current = null;
+        }
         const type = recorder.mimeType || "audio/webm";
         const audioBlob = new Blob(chunksRef.current, { type });
-        const responseTimeMs = Date.now() - startedAtRef.current;
+        const responseTimeMs = Date.now() - (responseStartedAt ?? startedAtRef.current);
         streamRef.current?.getTracks().forEach((track) => track.stop());
         setIsRecording(false);
         onRecordingStop(audioBlob, responseTimeMs);
@@ -62,7 +80,16 @@ export function AudioRecorder({ disabled, onRecordingStart, onRecordingStop }: A
       recorder.start();
       setIsRecording(true);
       onRecordingStart(startedAtRef.current);
+
+      if (stopAt) {
+        const remainingMs = Math.max(250, stopAt - Date.now());
+        autoStopRef.current = window.setTimeout(() => stopRecording(), remainingMs);
+      }
     } catch (caught) {
+      if (autoStopRef.current) {
+        window.clearTimeout(autoStopRef.current);
+        autoStopRef.current = null;
+      }
       streamRef.current?.getTracks().forEach((track) => track.stop());
       setIsRecording(false);
       setError(getMicrophoneErrorMessage(caught));
@@ -70,6 +97,11 @@ export function AudioRecorder({ disabled, onRecordingStart, onRecordingStop }: A
   }
 
   function stopRecording() {
+    if (autoStopRef.current) {
+      window.clearTimeout(autoStopRef.current);
+      autoStopRef.current = null;
+    }
+
     if (recorderRef.current?.state === "recording") {
       recorderRef.current.stop();
     }
