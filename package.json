@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.0.1",
+    "@netlify/blobs": "^10.7.8",
     "@netlify/functions": "^3.0.4",
     "lucide-react": "^0.511.0",
     "openai": "^4.103.0",

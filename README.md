@@ -55,13 +55,23 @@ If the frontend cannot reach the function during local frontend-only development
 
 ## Situation Images
 
-The app first tries to load professional generated images from:
+The deployed app loads each professional image through:
 
 ```text
-public/images/generated/
+/.netlify/functions/situation-image?id=hotel
 ```
 
-If a generated image is missing, the app automatically falls back to the lightweight SVG scene.
+The function uses `GEMINI_API_KEY` with `gemini-2.5-flash-image`, stores the result in Netlify Blobs, and reuses the saved image on future requests. If the function fails locally or during development, the app automatically falls back to the lightweight SVG scene.
+
+This means image generation happens once per situation on the deployed site, not every training session.
+
+To explicitly refresh a saved image, set `IMAGE_REFRESH_TOKEN` in Netlify, then open:
+
+```text
+https://YOUR_SITE.netlify.app/.netlify/functions/situation-image?id=hotel&refresh=1&token=YOUR_TOKEN
+```
+
+Local generation is still available if you want to review and commit images manually.
 
 Generate missing images once:
 
@@ -144,6 +154,7 @@ All can be accepted if they handle the same situation.
    - `GEMINI_IMAGE_MODEL`
    - `TRANSCRIBE_PROVIDER=gemini`
    - `EVALUATOR_PROVIDER=gemini`
+   - `IMAGE_REFRESH_TOKEN` optional, only for manual image refresh
 
 ## Next Steps
 

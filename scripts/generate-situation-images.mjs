@@ -56,7 +56,6 @@ async function generateImage(prompt, model, apiKey) {
           }
         ],
         generationConfig: {
-          responseModalities: ["Image"],
           responseFormat: {
             image: {
               aspectRatio: "16:9"

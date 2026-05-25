@@ -45,6 +45,6 @@ export function SituationCard({ situation, progress }: SituationCardProps) {
 }
 
 function getGeneratedImagePath(fallbackPath: string) {
-  const fileName = fallbackPath.split("/").pop()?.replace(/\.svg$/i, ".png");
-  return fileName ? `/images/generated/${fileName}` : fallbackPath;
+  const id = fallbackPath.split("/").pop()?.replace(/\.svg$/i, "");
+  return id ? `/.netlify/functions/situation-image?id=${encodeURIComponent(id)}` : fallbackPath;
 }
