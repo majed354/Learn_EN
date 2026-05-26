@@ -20,7 +20,7 @@ The training screen avoids Arabic so the learner does not translate in their hea
 - Gemini one-time image generation: `gemini-2.5-flash-image`
 - Browser SpeechSynthesis for playback
 - `localStorage` progress for the MVP
-- 100 flexible everyday travel and small-talk situations
+- 250 flexible everyday travel and small-talk situations
 
 ## Local Setup
 
@@ -138,11 +138,21 @@ The full practical core is planned as 1,000 visual speaking situations:
 - Stage 3: 250 longer social, study, and service conversations.
 - Stage 4: 250 fluency pressure tests, mixed scenarios, and role-play prompts.
 
-The current app includes the first 100 situations from Stage 1.
+The current app includes all 250 situations from Stage 1.
+
+## Content Selection
+
+The Stage 1 situations are based on practical A1-A2 communicative functions instead of fixed memorized translations. The set is aligned with the same kind of language priorities used by CEFR-oriented learning materials:
+
+- immediate needs and simple everyday exchanges
+- useful phrases for speaking practice
+- basic phrases and expressions for simple situations
+- familiar topics such as travel, food, health, services, shopping, transport, social interaction, and work
+- flexible paraphrases where more than one natural answer is accepted
 
 ## Fast Test
 
-Fast Test shows random cues. Each cue must be answered within 5 seconds. Three mistakes end the test and the app shows the score.
+Fast Test shows random cues. Each cue must be answered within the selected time, either 5 or 8 seconds. Three mistakes end the test and the app shows the score.
 
 ## Flexible Answers
 
@@ -175,6 +185,6 @@ All can be accepted if they handle the same situation.
 ## Next Steps
 
 - Generate richer situation photos and commit them when the first set looks right.
-- Expand beyond 100 situations after testing the first full set.
+- Expand Stage 2 with daily life and workplace situations after testing Stage 1.
 - Add role-play mode.
 - Add Supabase accounts after the training loop feels useful.
