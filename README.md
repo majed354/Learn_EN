@@ -21,6 +21,7 @@ The training screen avoids Arabic so the learner does not translate in their hea
 - Browser SpeechSynthesis for playback
 - `localStorage` progress for the MVP
 - 250 flexible everyday travel and small-talk situations
+- PWA metadata and a lightweight service worker for app-like mobile use
 
 ## Local Setup
 
@@ -152,7 +153,12 @@ The Stage 1 situations are based on practical A1-A2 communicative functions inst
 
 ## Fast Test
 
-Fast Test shows random cues. Each cue must be answered within the selected time, either 5 or 8 seconds. Three mistakes end the test and the app shows the score.
+Fast Test has two paths:
+
+- Normal: choose the number of questions and the topic, then continue until the final cue even if there are mistakes. The app shows a final report and updates progress from evaluated answers and time misses.
+- Challenge: the same quick automatic flow, but the run stops after 3 mistakes.
+
+Each cue can use 5 or 8 seconds. The test starts with a microphone check, then shows a cue number before every image so the transition is clear.
 
 ## Flexible Answers
 
