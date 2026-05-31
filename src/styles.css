@@ -104,7 +104,7 @@ button {
   margin-bottom: 14px;
   padding: 10px;
   display: grid;
-  grid-template-columns: minmax(330px, 1fr) minmax(170px, auto) auto;
+  grid-template-columns: minmax(330px, 1fr) minmax(170px, auto) minmax(180px, auto) auto;
   gap: 10px;
   align-items: end;
   background: rgba(255, 255, 255, 0.94);
@@ -155,6 +155,27 @@ button {
 
 .profile-panel strong {
   color: #14241f;
+}
+
+.sound-toggle {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid #cbd9d4;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #263d36;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.sound-toggle.active {
+  background: #eef8f2;
+  border-color: #cfe8d8;
+  color: #1f6f50;
 }
 
 .mastery-panel,

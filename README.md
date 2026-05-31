@@ -140,6 +140,8 @@ Feedback shows the learner's raw recognized words under `Your words`, then shows
 
 Progress can be saved under a learner-chosen profile name. The MVP stores profiles locally in the browser, so each browser/device keeps its own named progress until cloud accounts are added later.
 
+Sound feedback can be switched on or muted. The app uses short browser-generated cues for accepted answers, retry moments, and timeout misses, with light phone vibration when the browser supports it.
+
 ## Four-Stage Content Plan
 
 The full practical core is planned as 1,000 visual speaking situations:

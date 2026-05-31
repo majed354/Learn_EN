@@ -9,6 +9,8 @@ import {
   RotateCcw,
   Trophy,
   UserRound,
+  Volume2,
+  VolumeX,
   XCircle
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -23,6 +25,7 @@ import { Timer } from "./components/Timer";
 import { situations } from "./data/situations";
 import type { Situation, SituationCategory } from "./data/situations";
 import { submitAnswer } from "./lib/api";
+import { emitFeedbackSignal, loadFeedbackEnabled, saveFeedbackEnabled } from "./lib/feedback";
 import {
   emptyProgressFor,
   getProgressSummary,
@@ -147,6 +150,7 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [feedbackEnabled, setFeedbackEnabled] = useState(() => loadFeedbackEnabled());
 
   const currentSituation = trainingQueue[trainingIndex] ?? situations[0];
   const currentProgress = progress[currentSituation.id] ?? emptyProgressFor(currentSituation.id);
@@ -169,6 +173,10 @@ function App() {
     saveProgress(progress, profileName);
   }, [progress, profileName]);
 
+  useEffect(() => {
+    saveFeedbackEnabled(feedbackEnabled);
+  }, [feedbackEnabled]);
+
   function handleRecordingStart(startTime: number) {
     setStartedAt(startTime);
     setIsRecording(true);
@@ -185,8 +193,10 @@ function App() {
       const evaluation = await submitAnswer(audioBlob, currentSituation, responseTimeMs, targetMs);
       setResult(evaluation);
       setProgress((previous) => updateSituationProgress(previous, currentSituation.id, evaluation));
+      emitFeedbackSignal(evaluation.passed ? "success" : "retry", feedbackEnabled);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not evaluate this attempt.");
+      emitFeedbackSignal("retry", feedbackEnabled);
     } finally {
       setIsSubmitting(false);
       setStartedAt(null);
@@ -256,6 +266,12 @@ function App() {
 
   function refreshTrainingSession() {
     resetTrainingSession(trainingSetMode, trainingLessonId, trainingCategory, trainingCount);
+  }
+
+  function toggleFeedback() {
+    const nextEnabled = !feedbackEnabled;
+    setFeedbackEnabled(nextEnabled);
+    if (nextEnabled) emitFeedbackSignal("success", true);
   }
 
   function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
@@ -346,6 +362,15 @@ function App() {
         <p>
           Saving progress as <strong>{profileName}</strong>
         </p>
+        <button
+          className={`sound-toggle ${feedbackEnabled ? "active" : ""}`}
+          type="button"
+          onClick={toggleFeedback}
+          aria-pressed={feedbackEnabled}
+        >
+          {feedbackEnabled ? <Volume2 size={17} aria-hidden="true" /> : <VolumeX size={17} aria-hidden="true" />}
+          <span>{feedbackEnabled ? "Sound on" : "Muted"}</span>
+        </button>
       </section>
 
       <ProgressDashboard summary={summary} totalSituations={situations.length} />
@@ -483,6 +508,7 @@ function App() {
 
       {view === "test" ? (
         <FastTestView
+          feedbackEnabled={feedbackEnabled}
           onEvaluation={(situationId, evaluation) => {
             setProgress((previous) => updateSituationProgress(previous, situationId, evaluation));
           }}
@@ -534,8 +560,10 @@ type TestAttempt = {
 };
 
 function FastTestView({
+  feedbackEnabled,
   onEvaluation
 }: {
+  feedbackEnabled: boolean;
   onEvaluation: (situationId: string, evaluation: EvaluationResult) => void;
 }) {
   const [testMode, setTestMode] = useState<FastTestMode>("normal");
@@ -721,6 +749,7 @@ function FastTestView({
       : evaluation.error_type === "wrong_meaning"
         ? "Wrong meaning"
         : "Try a clearer phrase";
+    emitFeedbackSignal(passed ? "success" : "retry", feedbackEnabled);
     setRun((previous) => advanceTestRun(previous, passed, message, evaluation, responseTimeMs, testMode));
   }
 
@@ -737,6 +766,7 @@ function FastTestView({
     setCueStartedAt(null);
     setCueIntroUntil(null);
     setIsRecording(false);
+    emitFeedbackSignal(message.toLowerCase().includes("slow") ? "timeout" : "retry", feedbackEnabled);
     setRun((previous) => advanceTestRun(previous, false, message, syntheticResult, responseTimeMs, testMode));
   }
 
