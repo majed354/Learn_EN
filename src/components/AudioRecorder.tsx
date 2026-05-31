@@ -36,10 +36,12 @@ export function AudioRecorder({
   const isStartingRef = useRef(false);
   const sendOnStopRef = useRef(true);
   const recordingSessionRef = useRef(0);
+  const autoStopResponseTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (resetKey == null) return;
     autoStartedKeyRef.current = null;
+    autoStopResponseTimeRef.current = null;
     sendOnStopRef.current = false;
     if (autoStopRef.current) {
       window.clearTimeout(autoStopRef.current);
@@ -111,6 +113,7 @@ export function AudioRecorder({
       streamRef.current = stream;
       recorderRef.current = recorder;
       startedAtRef.current = Date.now();
+      autoStopResponseTimeRef.current = null;
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.push(event.data);
@@ -124,7 +127,9 @@ export function AudioRecorder({
         }
         const type = recorder.mimeType || "audio/webm";
         const audioBlob = new Blob(chunks, { type });
-        const responseTimeMs = Date.now() - (responseStartedAt ?? startedAtRef.current);
+        const responseTimeMs =
+          autoStopResponseTimeRef.current ?? Date.now() - (responseStartedAt ?? startedAtRef.current);
+        autoStopResponseTimeRef.current = null;
         if (!keepStreamAlive && isCurrentSession) streamRef.current?.getTracks().forEach((track) => track.stop());
         if (isCurrentSession) setIsRecording(false);
         if (sendOnStopRef.current && isCurrentSession) {
@@ -137,9 +142,14 @@ export function AudioRecorder({
       setIsRecording(true);
       onRecordingStart(startedAtRef.current);
 
+      const responseBase = responseStartedAt ?? startedAtRef.current;
+      const plannedResponseTimeMs = stopAt ? Math.max(0, stopAt - responseBase) : autoStopAfterMs;
       const autoStopDelay = stopAt ? Math.max(250, stopAt - Date.now()) : autoStopAfterMs;
       if (autoStopDelay) {
-        autoStopRef.current = window.setTimeout(() => stopRecording(), autoStopDelay);
+        autoStopRef.current = window.setTimeout(() => {
+          autoStopResponseTimeRef.current = Math.round(plannedResponseTimeMs ?? autoStopDelay);
+          stopRecording();
+        }, autoStopDelay);
       }
     } catch (caught) {
       if (autoStopRef.current) {
