@@ -8,9 +8,11 @@ import {
   PlayCircle,
   RotateCcw,
   Trophy,
+  UserRound,
   XCircle
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { AudioRecorder } from "./components/AudioRecorder";
 import { FeedbackPanel } from "./components/FeedbackPanel";
 import { ProgressBar } from "./components/ProgressBar";
@@ -26,8 +28,12 @@ import {
   getProgressSummary,
   getSituationMastery,
   isDue,
+  loadActiveProfileName,
+  loadProfileNames,
   loadProgress,
+  normalizeProfileName,
   resetProgress,
+  saveActiveProfileName,
   saveProgress,
   updateSituationProgress
 } from "./lib/progress";
@@ -123,7 +129,10 @@ const trainingLessons: TrainingLesson[] = [
 
 function App() {
   const [view, setView] = useState<View>("train");
-  const [progress, setProgress] = useState<ProgressState>(() => loadProgress());
+  const [profileName, setProfileName] = useState(() => loadActiveProfileName());
+  const [profileDraft, setProfileDraft] = useState(() => loadActiveProfileName());
+  const [profileNames, setProfileNames] = useState(() => loadProfileNames());
+  const [progress, setProgress] = useState<ProgressState>(() => loadProgress(loadActiveProfileName()));
   const [trainingSetMode, setTrainingSetMode] = useState<TrainingSetMode>("path");
   const [trainingLessonId, setTrainingLessonId] = useState(trainingLessons[0].id);
   const [trainingCategory, setTrainingCategory] = useState<FastTestCategory>("all");
@@ -157,8 +166,8 @@ function App() {
   );
 
   useEffect(() => {
-    saveProgress(progress);
-  }, [progress]);
+    saveProgress(progress, profileName);
+  }, [progress, profileName]);
 
   function handleRecordingStart(startTime: number) {
     setStartedAt(startTime);
@@ -198,7 +207,7 @@ function App() {
   }
 
   function handleResetProgress() {
-    resetProgress();
+    resetProgress(profileName);
     setProgress({});
     setResult(null);
     setError(null);
@@ -249,6 +258,36 @@ function App() {
     resetTrainingSession(trainingSetMode, trainingLessonId, trainingCategory, trainingCount);
   }
 
+  function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    activateProfile(profileDraft);
+  }
+
+  function activateProfile(nextName: string) {
+    const cleanName = normalizeProfileName(nextName);
+    saveProgress(progress, profileName);
+
+    if (cleanName === profileName) {
+      setProfileDraft(cleanName);
+      setProfileNames(loadProfileNames());
+      return;
+    }
+
+    const knownProfiles = loadProfileNames();
+    const isKnownProfile = knownProfiles.some((name) => name.toLowerCase() === cleanName.toLowerCase());
+    const nextProgress = isKnownProfile ? loadProgress(cleanName) : progress;
+
+    saveActiveProfileName(cleanName);
+    saveProgress(nextProgress, cleanName);
+    setProfileName(cleanName);
+    setProfileDraft(cleanName);
+    setProfileNames(loadProfileNames());
+    setProgress(nextProgress);
+    setResult(null);
+    setError(null);
+    setStartedAt(null);
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -275,6 +314,39 @@ function App() {
           </button>
         </nav>
       </header>
+
+      <section className="profile-panel" aria-label="Progress profile">
+        <form onSubmit={handleProfileSubmit}>
+          <label>
+            <span>Profile</span>
+            <input
+              type="text"
+              value={profileDraft}
+              onChange={(event) => setProfileDraft(event.target.value)}
+              placeholder="Your name"
+            />
+          </label>
+          <button className="secondary-button" type="submit">
+            <UserRound size={17} aria-hidden="true" />
+            Use profile
+          </button>
+        </form>
+        {profileNames.length > 1 ? (
+          <label className="saved-profile-select">
+            <span>Saved</span>
+            <select value={profileName} onChange={(event) => activateProfile(event.target.value)}>
+              {profileNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <p>
+          Saving progress as <strong>{profileName}</strong>
+        </p>
+      </section>
 
       <ProgressDashboard summary={summary} totalSituations={situations.length} />
 
@@ -828,8 +900,12 @@ function FastTestView({
                       </span>
                       <h3>{attempt.situation.prompt}</h3>
                       <p>{attempt.message}</p>
-                      {attempt.result?.corrected_answer ? (
-                        <small>Your words: {attempt.result.corrected_answer}</small>
+                      {attempt.result?.transcript ? (
+                        <small>Your words: {attempt.result.transcript}</small>
+                      ) : null}
+                      {attempt.result?.corrected_answer &&
+                      attempt.result.corrected_answer.toLowerCase() !== attempt.result.transcript.toLowerCase() ? (
+                        <small>Corrected: {attempt.result.corrected_answer}</small>
                       ) : null}
                       <strong>{attempt.result?.better_answer ?? attempt.situation.acceptableAnswers[0]}</strong>
                     </div>

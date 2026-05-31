@@ -54,6 +54,11 @@ export function FeedbackPanel({
   const cleanAnswer =
     result.passed && result.error_type === "none" && result.grammar >= 85 && result.naturalness >= 80;
   const betterAnswers = getBetterAnswers(result);
+  const spokenWords = result.transcript?.trim() || "No speech detected.";
+  const correctedWords = result.corrected_answer?.trim();
+  const showCorrection = correctedWords
+    ? correctedWords.toLowerCase() !== spokenWords.toLowerCase()
+    : false;
 
   return (
     <section className={`feedback-panel ${result.passed ? "passed" : "retry"}`} aria-live="polite">
@@ -76,8 +81,14 @@ export function FeedbackPanel({
           Your words
           {cleanAnswer ? <CheckCircle2 size={16} aria-label="Correct answer" /> : null}
         </span>
-        <p>{result.corrected_answer || result.better_answer || result.transcript}</p>
+        <p>{spokenWords}</p>
       </div>
+      {showCorrection ? (
+        <div className="answer-block corrected-answer">
+          <span>Corrected</span>
+          <p>{correctedWords}</p>
+        </div>
+      ) : null}
       <div className="answer-block best-answer">
         <span>Say it like this</span>
         <div className="answer-options">

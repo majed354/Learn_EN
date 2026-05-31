@@ -30,7 +30,11 @@ export type ProgressSummary = {
   categories: Record<SituationCategory, number>;
 };
 
-const STORAGE_KEY = "english-reflex-progress-v1";
+const LEGACY_STORAGE_KEY = "english-reflex-progress-v1";
+const PROGRESS_STORAGE_PREFIX = "english-reflex-progress-v2:";
+const ACTIVE_PROFILE_KEY = "english-reflex-active-profile-v1";
+const PROFILE_NAMES_KEY = "english-reflex-profile-names-v1";
+export const DEFAULT_PROFILE_NAME = "Guest";
 
 export function emptyProgressFor(situationId: string): SituationProgress {
   return {
@@ -46,18 +50,60 @@ export function emptyProgressFor(situationId: string): SituationProgress {
   };
 }
 
-export function loadProgress(): ProgressState {
+export function normalizeProfileName(name: string) {
+  const cleanName = name.trim().replace(/\s+/g, " ").slice(0, 40);
+  return cleanName || DEFAULT_PROFILE_NAME;
+}
+
+export function loadActiveProfileName() {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as ProgressState;
+    return normalizeProfileName(window.localStorage.getItem(ACTIVE_PROFILE_KEY) ?? DEFAULT_PROFILE_NAME);
+  } catch {
+    return DEFAULT_PROFILE_NAME;
+  }
+}
+
+export function saveActiveProfileName(name: string) {
+  const profileName = normalizeProfileName(name);
+  window.localStorage.setItem(ACTIVE_PROFILE_KEY, profileName);
+  saveProfileName(profileName);
+}
+
+export function loadProfileNames() {
+  try {
+    const raw = window.localStorage.getItem(PROFILE_NAMES_KEY);
+    const names = raw ? (JSON.parse(raw) as string[]) : [];
+    return Array.from(new Set([DEFAULT_PROFILE_NAME, ...names.map(normalizeProfileName), loadActiveProfileName()]));
+  } catch {
+    return [DEFAULT_PROFILE_NAME];
+  }
+}
+
+export function saveProfileName(name: string) {
+  const profileName = normalizeProfileName(name);
+  const names = Array.from(new Set([...loadProfileNames(), profileName]));
+  window.localStorage.setItem(PROFILE_NAMES_KEY, JSON.stringify(names));
+}
+
+export function loadProgress(profileName = loadActiveProfileName()): ProgressState {
+  try {
+    const raw = window.localStorage.getItem(getProgressStorageKey(profileName));
+    if (raw) return JSON.parse(raw) as ProgressState;
+    const legacyRaw =
+      normalizeProfileName(profileName) === DEFAULT_PROFILE_NAME
+        ? window.localStorage.getItem(LEGACY_STORAGE_KEY)
+        : null;
+    if (!legacyRaw) return {};
+    return JSON.parse(legacyRaw) as ProgressState;
   } catch {
     return {};
   }
 }
 
-export function saveProgress(progress: ProgressState) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+export function saveProgress(progress: ProgressState, profileName = loadActiveProfileName()) {
+  const cleanName = normalizeProfileName(profileName);
+  saveProfileName(cleanName);
+  window.localStorage.setItem(getProgressStorageKey(cleanName), JSON.stringify(progress));
 }
 
 export function updateSituationProgress(
@@ -165,8 +211,15 @@ export function isDue(item: SituationProgress) {
   return new Date(item.nextReviewAt).getTime() <= Date.now();
 }
 
-export function resetProgress() {
-  window.localStorage.removeItem(STORAGE_KEY);
+export function resetProgress(profileName = loadActiveProfileName()) {
+  window.localStorage.removeItem(getProgressStorageKey(profileName));
+  if (normalizeProfileName(profileName) === DEFAULT_PROFILE_NAME) {
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+  }
+}
+
+function getProgressStorageKey(profileName: string) {
+  return `${PROGRESS_STORAGE_PREFIX}${encodeURIComponent(normalizeProfileName(profileName))}`;
 }
 
 function getProgressStatus(item: SituationProgress): ProgressStatus {
