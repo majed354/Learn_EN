@@ -19,7 +19,7 @@ import { SituationCard } from "./components/SituationCard";
 import { SituationImage } from "./components/SituationImage";
 import { Timer } from "./components/Timer";
 import { situations } from "./data/situations";
-import type { Situation } from "./data/situations";
+import type { Situation, SituationCategory } from "./data/situations";
 import { submitAnswer } from "./lib/api";
 import {
   emptyProgressFor,
@@ -37,25 +37,101 @@ import type { EvaluationResult, TrainingMode } from "./lib/scoring";
 
 type View = "train" | "test" | "review" | "stats";
 
+const TRAINING_QUESTION_OPTIONS = [1, 5, 10, 15, 20, 25, 50, 100, 250] as const;
 const FAST_TEST_SECONDS_OPTIONS = [5, 8] as const;
 const FAST_TEST_QUESTION_OPTIONS = [10, 20, 50, 100, 250] as const;
 const FAST_TEST_MAX_MISTAKES = 3;
 const FAST_TEST_FEEDBACK_MS = 750;
 const FAST_TEST_CUE_INTRO_MS = 850;
+type TrainingSetMode = "path" | "custom";
 type FastTestSeconds = (typeof FAST_TEST_SECONDS_OPTIONS)[number];
 type FastTestCategory = Situation["category"] | "all";
 type FastTestMode = "normal" | "challenge";
 type MicrophoneStatus = "idle" | "checking" | "ready" | "blocked";
+
+type TrainingLesson = {
+  id: string;
+  title: string;
+  description: string;
+  categories: SituationCategory[];
+  count: number;
+};
 
 const fastTestCategories: FastTestCategory[] = [
   "all",
   ...Array.from(new Set(situations.map((situation) => situation.category)))
 ];
 
+const trainingLessons: TrainingLesson[] = [
+  {
+    id: "arrival-basics",
+    title: "Arrival basics",
+    description: "Airport, passport, taxi, and first hotel check-in.",
+    categories: ["airport", "passport", "taxi", "hotel"],
+    count: 20
+  },
+  {
+    id: "hotel-stay",
+    title: "Hotel stay",
+    description: "Check-in, room issues, payment, and simple help requests.",
+    categories: ["hotel", "payment", "directions", "emergency"],
+    count: 20
+  },
+  {
+    id: "food-and-service",
+    title: "Food and service",
+    description: "Restaurant orders, bills, polite requests, and small talk.",
+    categories: ["restaurant", "payment", "small-talk"],
+    count: 20
+  },
+  {
+    id: "moving-around",
+    title: "Moving around",
+    description: "Taxi rides, directions, places, prices, and arrival phrases.",
+    categories: ["taxi", "directions", "payment"],
+    count: 20
+  },
+  {
+    id: "shopping-and-paying",
+    title: "Shopping and paying",
+    description: "Finding items, asking prices, paying, returns, and receipts.",
+    categories: ["shopping", "payment", "small-talk"],
+    count: 20
+  },
+  {
+    id: "help-and-emergency",
+    title: "Help and emergency",
+    description: "Getting help clearly without freezing under pressure.",
+    categories: ["emergency", "directions", "hotel", "taxi"],
+    count: 20
+  },
+  {
+    id: "polite-daily-replies",
+    title: "Polite daily replies",
+    description: "Short natural answers for common everyday exchanges.",
+    categories: ["small-talk", "restaurant", "hotel", "shopping"],
+    count: 20
+  },
+  {
+    id: "full-travel-day",
+    title: "Full travel day",
+    description: "A mixed route from airport arrival to dinner and payment.",
+    categories: ["airport", "passport", "taxi", "hotel", "restaurant", "payment"],
+    count: 30
+  }
+];
+
 function App() {
   const [view, setView] = useState<View>("train");
   const [progress, setProgress] = useState<ProgressState>(() => loadProgress());
-  const [currentId, setCurrentId] = useState(situations[0].id);
+  const [trainingSetMode, setTrainingSetMode] = useState<TrainingSetMode>("path");
+  const [trainingLessonId, setTrainingLessonId] = useState(trainingLessons[0].id);
+  const [trainingCategory, setTrainingCategory] = useState<FastTestCategory>("all");
+  const [trainingCount, setTrainingCount] = useState<number>(20);
+  const [trainingQueue, setTrainingQueue] = useState<Situation[]>(() =>
+    createTrainingQueue("path", trainingLessons[0].id, "all", 20)
+  );
+  const [trainingIndex, setTrainingIndex] = useState(0);
   const [mode, setMode] = useState<TrainingMode>("normal");
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -63,13 +139,14 @@ function App() {
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const currentSituation = useMemo(
-    () => situations.find((situation) => situation.id === currentId) ?? situations[0],
-    [currentId]
-  );
+  const currentSituation = trainingQueue[trainingIndex] ?? situations[0];
   const currentProgress = progress[currentSituation.id] ?? emptyProgressFor(currentSituation.id);
   const summary = useMemo(() => getProgressSummary(situations, progress), [progress]);
   const targetMs = getTargetMs(mode);
+  const activeTrainingLesson = getTrainingLesson(trainingLessonId);
+  const trainingPool = getFastTestPool(trainingCategory);
+  const selectedTrainingCount = Math.min(trainingCount, trainingPool.length);
+  const trainingCountOptions = getTrainingCountOptions(trainingPool.length);
   const dueSituations = useMemo(
     () =>
       situations.filter((situation) => {
@@ -111,7 +188,7 @@ function App() {
     setResult(null);
     setError(null);
     setStartedAt(null);
-    setCurrentId(getNextSituation(currentSituation, progress).id);
+    setTrainingIndex((previous) => (trainingQueue.length ? (previous + 1) % trainingQueue.length : 0));
   }
 
   function handleRetry() {
@@ -133,6 +210,43 @@ function App() {
     utterance.lang = "en-US";
     utterance.rate = 0.92;
     window.speechSynthesis.speak(utterance);
+  }
+
+  function resetTrainingSession(
+    nextMode = trainingSetMode,
+    nextLessonId = trainingLessonId,
+    nextCategory = trainingCategory,
+    nextCount = trainingCount
+  ) {
+    setTrainingQueue(createTrainingQueue(nextMode, nextLessonId, nextCategory, nextCount));
+    setTrainingIndex(0);
+    setResult(null);
+    setError(null);
+    setStartedAt(null);
+  }
+
+  function handleTrainingSetModeChange(nextMode: TrainingSetMode) {
+    setTrainingSetMode(nextMode);
+    resetTrainingSession(nextMode, trainingLessonId, trainingCategory, trainingCount);
+  }
+
+  function handleTrainingLessonChange(nextLessonId: string) {
+    setTrainingLessonId(nextLessonId);
+    resetTrainingSession("path", nextLessonId, trainingCategory, trainingCount);
+  }
+
+  function handleTrainingCategoryChange(nextCategory: FastTestCategory) {
+    setTrainingCategory(nextCategory);
+    resetTrainingSession("custom", trainingLessonId, nextCategory, trainingCount);
+  }
+
+  function handleTrainingCountChange(nextCount: number) {
+    setTrainingCount(nextCount);
+    resetTrainingSession("custom", trainingLessonId, trainingCategory, nextCount);
+  }
+
+  function refreshTrainingSession() {
+    resetTrainingSession(trainingSetMode, trainingLessonId, trainingCategory, trainingCount);
   }
 
   return (
@@ -167,6 +281,95 @@ function App() {
       {view === "train" ? (
         <section className="training-layout">
           <div className="left-column">
+            <div className={`training-controls ${trainingSetMode}`} aria-label="Training set settings">
+              <div className="test-control-group">
+                <span>Plan</span>
+                <div className="segmented-control" aria-label="Training plan">
+                  <button
+                    className={trainingSetMode === "path" ? "active" : ""}
+                    type="button"
+                    onClick={() => handleTrainingSetModeChange("path")}
+                    disabled={isRecording || isSubmitting}
+                  >
+                    Lessons
+                  </button>
+                  <button
+                    className={trainingSetMode === "custom" ? "active" : ""}
+                    type="button"
+                    onClick={() => handleTrainingSetModeChange("custom")}
+                    disabled={isRecording || isSubmitting}
+                  >
+                    Custom
+                  </button>
+                </div>
+              </div>
+
+              {trainingSetMode === "path" ? (
+                <label className="test-control-group lesson-select">
+                  <span>Lesson</span>
+                  <select
+                    value={trainingLessonId}
+                    onChange={(event) => handleTrainingLessonChange(event.target.value)}
+                    disabled={isRecording || isSubmitting}
+                  >
+                    {trainingLessons.map((lesson) => (
+                      <option key={lesson.id} value={lesson.id}>
+                        {lesson.title} ({lesson.count})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <>
+                  <label className="test-control-group">
+                    <span>Topic</span>
+                    <select
+                      value={trainingCategory}
+                      onChange={(event) => handleTrainingCategoryChange(event.target.value as FastTestCategory)}
+                      disabled={isRecording || isSubmitting}
+                    >
+                      {fastTestCategories.map((item) => (
+                        <option key={item} value={item}>
+                          {formatCategoryLabel(item)} ({getFastTestPool(item).length})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="test-control-group">
+                    <span>Cues</span>
+                    <select
+                      value={selectedTrainingCount}
+                      onChange={(event) => handleTrainingCountChange(Number(event.target.value))}
+                      disabled={isRecording || isSubmitting}
+                    >
+                      {trainingCountOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
+
+              <div className="training-set-status">
+                <span>{trainingSetMode === "path" ? "Lesson cue" : "Custom set"}</span>
+                <strong>
+                  {trainingQueue.length ? trainingIndex + 1 : 0}/{trainingQueue.length}
+                </strong>
+              </div>
+              <button
+                className="secondary-button training-refresh"
+                type="button"
+                onClick={refreshTrainingSession}
+                disabled={isRecording || isSubmitting}
+              >
+                {trainingSetMode === "path" ? "Restart" : "Shuffle"}
+              </button>
+              {trainingSetMode === "path" ? (
+                <p className="training-lesson-copy">{activeTrainingLesson.description}</p>
+              ) : null}
+            </div>
             <SituationCard situation={currentSituation} progress={currentProgress} />
             <div className="mode-row" aria-label="Training speed">
               {trainingModes.map((trainingMode) => (
@@ -188,6 +391,8 @@ function App() {
               <Timer isRunning={isRecording} startedAt={startedAt} targetMs={targetMs} />
               <AudioRecorder
                 disabled={isSubmitting}
+                autoStopAfterMs={targetMs}
+                manualStopEnabled={false}
                 onRecordingStart={handleRecordingStart}
                 onRecordingStop={handleRecordingStop}
               />
@@ -217,7 +422,11 @@ function App() {
           dueSituations={dueSituations}
           progress={progress}
           onTrain={(situation) => {
-            setCurrentId(situation.id);
+            setTrainingSetMode("custom");
+            setTrainingCategory(situation.category);
+            setTrainingCount(1);
+            setTrainingQueue([situation]);
+            setTrainingIndex(0);
             setResult(null);
             setView("train");
           }}
@@ -619,8 +828,8 @@ function FastTestView({
                       </span>
                       <h3>{attempt.situation.prompt}</h3>
                       <p>{attempt.message}</p>
-                      {attempt.result?.transcript ? (
-                        <small>Your words: {attempt.result.transcript}</small>
+                      {attempt.result?.corrected_answer ? (
+                        <small>Your words: {attempt.result.corrected_answer}</small>
                       ) : null}
                       <strong>{attempt.result?.better_answer ?? attempt.situation.acceptableAnswers[0]}</strong>
                     </div>
@@ -828,6 +1037,43 @@ function StatsView({ progress, onReset }: { progress: ProgressState; onReset: ()
   );
 }
 
+function createTrainingQueue(
+  mode: TrainingSetMode,
+  lessonId: string,
+  category: FastTestCategory,
+  count: number
+) {
+  if (mode === "path") {
+    const lesson = getTrainingLesson(lessonId);
+    return createLessonQueue(lesson);
+  }
+
+  const pool = getFastTestPool(category);
+  return shuffleSituations(pool).slice(0, Math.min(count, pool.length));
+}
+
+function getTrainingLesson(lessonId: string) {
+  return trainingLessons.find((lesson) => lesson.id === lessonId) ?? trainingLessons[0];
+}
+
+function createLessonQueue(lesson: TrainingLesson) {
+  const buckets = lesson.categories.map((category) =>
+    situations.filter((situation) => situation.category === category)
+  );
+  const queue: Situation[] = [];
+  let cursor = 0;
+
+  while (queue.length < lesson.count && buckets.some((bucket) => cursor < bucket.length)) {
+    for (const bucket of buckets) {
+      const situation = bucket[cursor];
+      if (situation && queue.length < lesson.count) queue.push(situation);
+    }
+    cursor += 1;
+  }
+
+  return queue;
+}
+
 function createFastTestRun(pool: Situation[], questionCount: number): TestRun {
   return {
     status: "running",
@@ -864,6 +1110,12 @@ function formatCategoryLabel(category: FastTestCategory) {
 
 function getQuestionCountOptions(poolLength: number) {
   return Array.from(new Set([...FAST_TEST_QUESTION_OPTIONS.filter((option) => option <= poolLength), poolLength]))
+    .filter((option) => option > 0)
+    .sort((a, b) => a - b);
+}
+
+function getTrainingCountOptions(poolLength: number) {
+  return Array.from(new Set([...TRAINING_QUESTION_OPTIONS.filter((option) => option <= poolLength), poolLength]))
     .filter((option) => option > 0)
     .sort((a, b) => a - b);
 }
@@ -906,6 +1158,7 @@ function createFastTestMistakeEvaluation(
 
   return {
     transcript: "",
+    corrected_answer: situation.acceptableAnswers[0],
     meaning: 0,
     grammar: 0,
     naturalness: 0,
@@ -1000,18 +1253,6 @@ function shuffleSituations(items: Situation[]) {
     [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
   }
   return shuffled;
-}
-
-function getNextSituation(current: Situation, progress: ProgressState) {
-  const weakOrDue = situations.find((situation) => {
-    if (situation.id === current.id) return false;
-    const item = progress[situation.id] ?? emptyProgressFor(situation.id);
-    return item.status === "weak" || isDue(item);
-  });
-
-  if (weakOrDue) return weakOrDue;
-  const currentIndex = situations.findIndex((situation) => situation.id === current.id);
-  return situations[(currentIndex + 1) % situations.length];
 }
 
 export default App;

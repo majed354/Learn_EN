@@ -63,6 +63,7 @@ function demoEvaluation(situation: Situation, responseTimeMs: number, targetResp
 
   return {
     transcript: "Demo transcript. Connect API keys for live speech recognition.",
+    corrected_answer: situation.acceptableAnswers[0],
     meaning,
     grammar,
     naturalness,

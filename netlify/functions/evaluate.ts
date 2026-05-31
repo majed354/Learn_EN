@@ -17,6 +17,7 @@ type ModelEvaluation = {
   naturalness: number;
   overall?: number;
   passed?: boolean;
+  corrected_answer?: string;
   better_answer: string;
   feedback_en: string;
   error_type: ErrorType;
@@ -301,9 +302,13 @@ Rules:
 5. Do not punish accents or transcription punctuation.
 6. Be light about small article errors such as "a" or "the".
 7. If the answer does not solve the real situation, set meaning <= 40, overall <= 45, passed false, and error_type "wrong_meaning".
-8. Feedback must be short English only. Do not use Arabic.
-9. Give one better English answer that is natural and short. It is a suggestion, not the only correct answer.
-10. Return JSON only.
+8. Meaning is the primary score. Good grammar or natural wording must not rescue an answer with weak or wrong meaning.
+9. If the answer only partially handles the situation, set meaning between 50 and 69, passed false, and keep overall modest.
+10. If the meaning is correct but grammar is rough, keep meaning high and lower grammar/naturalness instead.
+11. Provide corrected_answer as the learner's answer rewritten with correct grammar and natural wording, preserving their wording as much as possible.
+12. Feedback must be short English only. Do not use Arabic.
+13. Give one better English answer that is natural and short. It is a suggestion, not the only correct answer.
+14. Return JSON only.
 
 JSON schema:
 {
@@ -312,6 +317,7 @@ JSON schema:
   "naturalness": number,
   "overall": number,
   "passed": boolean,
+  "corrected_answer": string,
   "better_answer": string,
   "feedback_en": string,
   "error_type": "none" | "too_slow" | "wrong_meaning" | "grammar" | "unnatural" | "unclear_audio"
@@ -328,12 +334,15 @@ function normalizeEvaluation(
   const naturalness = clampScore(evaluation.naturalness);
   const wrongMeaning = evaluation.error_type === "wrong_meaning" || meaning < 60;
   const unclearAudio = evaluation.error_type === "unclear_audio";
-  const modelOverall =
-    typeof evaluation.overall === "number"
-      ? clampScore(evaluation.overall)
-      : Math.round(meaning * 0.45 + grammar * 0.2 + naturalness * 0.2 + speed * 0.15);
-  const rawOverall = clampScore(modelOverall * 0.85 + speed * 0.15);
-  const overall = wrongMeaning ? Math.min(rawOverall, 45) : unclearAudio ? Math.min(rawOverall, 40) : rawOverall;
+  const computedOverall = Math.round(meaning * 0.55 + grammar * 0.15 + naturalness * 0.15 + speed * 0.15);
+  const modelOverall = typeof evaluation.overall === "number" ? clampScore(evaluation.overall) : computedOverall;
+  const rawOverall = clampScore(modelOverall * 0.45 + computedOverall * 0.55);
+  const meaningCap = meaning < 70 ? 62 : meaning < 80 ? 82 : 100;
+  const overall = unclearAudio
+    ? Math.min(rawOverall, 35)
+    : wrongMeaning
+      ? Math.min(rawOverall, 40)
+      : Math.min(rawOverall, meaningCap);
   const semanticallyGood = meaning >= 70 && overall >= 65 && !wrongMeaning && !unclearAudio;
   const passed = semanticallyGood && evaluation.passed !== false;
 
@@ -346,6 +355,7 @@ function normalizeEvaluation(
     overall,
     passed,
     perfect: meaning >= 85 && speed >= 75,
+    corrected_answer: evaluation.corrected_answer || evaluation.better_answer || transcript,
     better_answer: evaluation.better_answer || "Could you say that again, please?",
     feedback_en: evaluation.feedback_en || "Try again with a shorter, clearer sentence.",
     error_type: wrongMeaning ? "wrong_meaning" : evaluation.error_type || (speed < 50 ? "too_slow" : "none"),

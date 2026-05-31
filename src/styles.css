@@ -102,6 +102,7 @@ button {
 
 .mastery-panel,
 .metric,
+.training-controls,
 .scene-panel,
 .practice-panel,
 .feedback-panel,
@@ -159,6 +160,59 @@ button {
 .right-column {
   display: grid;
   gap: 14px;
+}
+
+.training-controls {
+  padding: 10px;
+  display: grid;
+  grid-template-columns: minmax(142px, 0.9fr) minmax(230px, 1.35fr) minmax(98px, 0.55fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.training-controls.custom {
+  grid-template-columns: minmax(142px, 0.95fr) minmax(170px, 1fr) minmax(96px, 0.55fr) minmax(98px, 0.55fr) auto;
+}
+
+.training-controls .test-control-group select {
+  min-height: 40px;
+}
+
+.training-set-status {
+  min-height: 40px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 6px 10px;
+  background: #f6f9f8;
+  border: 1px solid #dce6e2;
+  border-radius: 8px;
+}
+
+.training-set-status span {
+  color: #60746d;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.training-set-status strong {
+  color: #14241f;
+  font-size: 1.08rem;
+  line-height: 1;
+}
+
+.training-refresh {
+  min-height: 40px;
+  padding: 0 14px;
+}
+
+.training-lesson-copy {
+  grid-column: 1 / -1;
+  margin: -2px 0 0;
+  color: #61756e;
+  font-size: 0.9rem;
+  font-weight: 760;
 }
 
 .scene-panel {
@@ -383,6 +437,11 @@ button {
   cursor: not-allowed;
 }
 
+.record-button.recording:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 .inline-error {
   margin: 10px 0 0;
   color: #9a3028;
@@ -485,6 +544,16 @@ button {
   font-weight: 900;
   margin-bottom: 6px;
   text-transform: uppercase;
+}
+
+.answer-block .answer-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.answer-label svg {
+  color: #1f8a52;
 }
 
 .answer-block p {
@@ -1202,20 +1271,41 @@ button {
     display: contents;
   }
 
-  .scene-panel {
+  .training-controls {
     order: 1;
   }
 
-  .practice-panel {
+  .scene-panel {
     order: 2;
   }
 
-  .mode-row {
+  .practice-panel {
     order: 3;
   }
 
-  .feedback-panel {
+  .mode-row {
     order: 4;
+  }
+
+  .feedback-panel {
+    order: 5;
+  }
+
+  .training-controls,
+  .training-controls.custom {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .training-controls .lesson-select,
+  .training-lesson-copy {
+    grid-column: 1 / -1;
+  }
+
+  .training-set-status,
+  .training-refresh {
+    min-height: 42px;
   }
 
   .scene-image-wrap {

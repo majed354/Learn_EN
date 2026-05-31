@@ -1,4 +1,4 @@
-import { RotateCcw, Volume2, ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle2, RotateCcw, Volume2 } from "lucide-react";
 import type { EvaluationResult } from "../lib/scoring";
 import { ProgressBar } from "./ProgressBar";
 
@@ -45,11 +45,14 @@ export function FeedbackPanel({
   if (!result) {
     return (
       <section className="feedback-panel empty">
-        <h2>Speak fast, then stop.</h2>
-        <p>Your score and progress will appear here after each attempt.</p>
+        <h2>Speak fast.</h2>
+        <p>Recording stops automatically. Your score and progress will appear here after each attempt.</p>
       </section>
     );
   }
+
+  const cleanAnswer =
+    result.passed && result.error_type === "none" && result.grammar >= 85 && result.naturalness >= 80;
 
   return (
     <section className={`feedback-panel ${result.passed ? "passed" : "retry"}`} aria-live="polite">
@@ -68,8 +71,11 @@ export function FeedbackPanel({
         <ProgressBar value={result.speed} label="Speed" tone={result.speed >= 75 ? "green" : "amber"} />
       </div>
       <div className="answer-block">
-        <span>Your words</span>
-        <p>{result.transcript}</p>
+        <span className="answer-label">
+          Your words
+          {cleanAnswer ? <CheckCircle2 size={16} aria-label="Correct answer" /> : null}
+        </span>
+        <p>{result.corrected_answer || result.better_answer || result.transcript}</p>
       </div>
       <div className="answer-block best-answer">
         <span>Say it like this</span>

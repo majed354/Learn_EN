@@ -8,6 +8,8 @@ type AudioRecorderProps = {
   keepStreamAlive?: boolean;
   responseStartedAt?: number | null;
   stopAt?: number | null;
+  autoStopAfterMs?: number | null;
+  manualStopEnabled?: boolean;
   onRecordingStart: (startedAt: number) => void;
   onRecordingStop: (audioBlob: Blob, responseTimeMs: number) => void;
 };
@@ -19,6 +21,8 @@ export function AudioRecorder({
   keepStreamAlive,
   responseStartedAt,
   stopAt,
+  autoStopAfterMs,
+  manualStopEnabled = true,
   onRecordingStart,
   onRecordingStop
 }: AudioRecorderProps) {
@@ -133,9 +137,9 @@ export function AudioRecorder({
       setIsRecording(true);
       onRecordingStart(startedAtRef.current);
 
-      if (stopAt) {
-        const remainingMs = Math.max(250, stopAt - Date.now());
-        autoStopRef.current = window.setTimeout(() => stopRecording(), remainingMs);
+      const autoStopDelay = stopAt ? Math.max(250, stopAt - Date.now()) : autoStopAfterMs;
+      if (autoStopDelay) {
+        autoStopRef.current = window.setTimeout(() => stopRecording(), autoStopDelay);
       }
     } catch (caught) {
       if (autoStopRef.current) {
@@ -165,12 +169,12 @@ export function AudioRecorder({
       <button
         className={`record-button ${isRecording ? "recording" : ""}`}
         type="button"
-        onClick={isRecording ? stopRecording : startRecording}
-        disabled={disabled}
-        title={isRecording ? "Stop recording" : "Start speaking"}
+        onClick={isRecording && manualStopEnabled ? stopRecording : startRecording}
+        disabled={disabled || (isRecording && !manualStopEnabled)}
+        title={isRecording ? "Recording" : "Start speaking"}
       >
         {isRecording ? <Square size={26} aria-hidden="true" /> : <Mic size={30} aria-hidden="true" />}
-        <span>{isRecording ? "Stop" : "Start speaking"}</span>
+        <span>{isRecording ? "Recording..." : "Start speaking"}</span>
       </button>
       {error ? <p className="inline-error">{error}</p> : null}
     </div>

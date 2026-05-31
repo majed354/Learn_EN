@@ -8,6 +8,7 @@ export type ErrorType =
 
 export type EvaluationResult = {
   transcript: string;
+  corrected_answer: string;
   meaning: number;
   grammar: number;
   naturalness: number;

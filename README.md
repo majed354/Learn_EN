@@ -130,6 +130,14 @@ Each situation is tracked locally:
 
 The dashboard shows overall mastery, automatic situations, review count, success rate, and category progress.
 
+## Training Mode
+
+Training starts with a fixed lesson path. Each lesson mixes a small set of related situations, such as arrival, hotel stay, food and service, moving around, shopping, emergencies, and polite daily replies.
+
+The learner can also switch to Custom training, choose a topic or all topics, choose a limited number of cues, and shuffle that set. Training recordings stop automatically based on the selected speed mode so response time stays consistent.
+
+Feedback shows the learner's corrected answer instead of raw transcription. A check appears beside `Your words` only when the answer is accepted with no major grammar or naturalness issue.
+
 ## Four-Stage Content Plan
 
 The full practical core is planned as 1,000 visual speaking situations:
@@ -163,6 +171,8 @@ Each cue can use 5 or 8 seconds. The test starts with a microphone check, then s
 ## Flexible Answers
 
 Answers are evaluated by target meaning, not exact wording. Synonyms, paraphrases, shorter natural answers, and different polite forms should pass when they solve the situation.
+
+The evaluator is meaning-first: good grammar cannot rescue the score if the answer does not handle the situation. Wrong meaning is capped to a low overall score, while correct meaning with rough grammar keeps a strong meaning score and receives grammar/naturalness feedback.
 
 Example for hotel check-in:
 
