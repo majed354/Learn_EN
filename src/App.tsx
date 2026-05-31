@@ -53,6 +53,8 @@ const FAST_TEST_QUESTION_OPTIONS = [10, 20, 50, 100, 250] as const;
 const FAST_TEST_MAX_MISTAKES = 3;
 const FAST_TEST_FEEDBACK_MS = 750;
 const FAST_TEST_CUE_INTRO_MS = 850;
+const DEFAULT_TRAINING_COUNT = 20;
+const TRAINING_SESSION_STORAGE_PREFIX = "english-reflex-training-session-v1:";
 type TrainingSetMode = "path" | "custom";
 type FastTestSeconds = (typeof FAST_TEST_SECONDS_OPTIONS)[number];
 type FastTestCategory = Situation["category"] | "all";
@@ -67,6 +69,26 @@ type TrainingLesson = {
   description: string;
   categories: SituationCategory[];
   count: number;
+};
+
+type TrainingSessionSnapshot = {
+  mode: TrainingSetMode;
+  lessonId: string;
+  category: FastTestCategory;
+  count: number;
+  index: number;
+  lessonIndexes?: Record<string, number>;
+};
+
+type LoadedTrainingSession = TrainingSessionSnapshot & {
+  queue: Situation[];
+  lessonIndexes: Record<string, number>;
+};
+
+type InitialAppState = {
+  profileName: string;
+  progress: ProgressState;
+  training: LoadedTrainingSession;
 };
 
 type ConversationTurn = {
@@ -141,19 +163,32 @@ const trainingLessons: TrainingLesson[] = [
 ];
 
 function App() {
+  const initialAppRef = useRef<InitialAppState | null>(null);
+
+  function getInitialAppState() {
+    if (!initialAppRef.current) {
+      const initialProfileName = loadActiveProfileName();
+      const initialProgress = loadProgress(initialProfileName);
+      initialAppRef.current = {
+        profileName: initialProfileName,
+        progress: initialProgress,
+        training: loadTrainingSession(initialProfileName, initialProgress)
+      };
+    }
+    return initialAppRef.current;
+  }
+
   const [view, setView] = useState<View>("train");
-  const [profileName, setProfileName] = useState(() => loadActiveProfileName());
-  const [profileDraft, setProfileDraft] = useState(() => loadActiveProfileName());
+  const [profileName, setProfileName] = useState(() => getInitialAppState().profileName);
+  const [profileDraft, setProfileDraft] = useState(() => getInitialAppState().profileName);
   const [profileNames, setProfileNames] = useState(() => loadProfileNames());
-  const [progress, setProgress] = useState<ProgressState>(() => loadProgress(loadActiveProfileName()));
-  const [trainingSetMode, setTrainingSetMode] = useState<TrainingSetMode>("path");
-  const [trainingLessonId, setTrainingLessonId] = useState(trainingLessons[0].id);
-  const [trainingCategory, setTrainingCategory] = useState<FastTestCategory>("all");
-  const [trainingCount, setTrainingCount] = useState<number>(20);
-  const [trainingQueue, setTrainingQueue] = useState<Situation[]>(() =>
-    createTrainingQueue("path", trainingLessons[0].id, "all", 20)
-  );
-  const [trainingIndex, setTrainingIndex] = useState(0);
+  const [progress, setProgress] = useState<ProgressState>(() => getInitialAppState().progress);
+  const [trainingSetMode, setTrainingSetMode] = useState<TrainingSetMode>(() => getInitialAppState().training.mode);
+  const [trainingLessonId, setTrainingLessonId] = useState(() => getInitialAppState().training.lessonId);
+  const [trainingCategory, setTrainingCategory] = useState<FastTestCategory>(() => getInitialAppState().training.category);
+  const [trainingCount, setTrainingCount] = useState<number>(() => getInitialAppState().training.count);
+  const [trainingQueue, setTrainingQueue] = useState<Situation[]>(() => getInitialAppState().training.queue);
+  const [trainingIndex, setTrainingIndex] = useState(() => getInitialAppState().training.index);
   const [mode, setMode] = useState<TrainingMode>("normal");
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -186,6 +221,16 @@ function App() {
   useEffect(() => {
     saveFeedbackEnabled(feedbackEnabled);
   }, [feedbackEnabled]);
+
+  useEffect(() => {
+    saveTrainingSession(profileName, {
+      mode: trainingSetMode,
+      lessonId: trainingLessonId,
+      category: trainingCategory,
+      count: trainingCount,
+      index: trainingIndex
+    });
+  }, [profileName, trainingSetMode, trainingLessonId, trainingCategory, trainingCount, trainingIndex]);
 
   function handleRecordingStart(startTime: number) {
     setStartedAt(startTime);
@@ -228,7 +273,9 @@ function App() {
 
   function handleResetProgress() {
     resetProgress(profileName);
+    resetTrainingSessionStorage(profileName);
     setProgress({});
+    resetTrainingSession(trainingSetMode, trainingLessonId, trainingCategory, trainingCount);
     setResult(null);
     setError(null);
   }
@@ -247,7 +294,8 @@ function App() {
     nextCategory = trainingCategory,
     nextCount = trainingCount
   ) {
-    setTrainingQueue(createTrainingQueue(nextMode, nextLessonId, nextCategory, nextCount));
+    const nextQueue = createTrainingQueue(nextMode, nextLessonId, nextCategory, nextCount);
+    setTrainingQueue(nextQueue);
     setTrainingIndex(0);
     setResult(null);
     setError(null);
@@ -261,7 +309,14 @@ function App() {
 
   function handleTrainingLessonChange(nextLessonId: string) {
     setTrainingLessonId(nextLessonId);
-    resetTrainingSession("path", nextLessonId, trainingCategory, trainingCount);
+    const nextQueue = createTrainingQueue("path", nextLessonId, trainingCategory, trainingCount);
+    const savedSession = loadTrainingSession(profileName, progress);
+    const savedIndex = savedSession.lessonIndexes[nextLessonId] ?? getSuggestedLessonIndexFromProgress(nextQueue, progress);
+    setTrainingQueue(nextQueue);
+    setTrainingIndex(clampTrainingIndex(savedIndex, nextQueue.length));
+    setResult(null);
+    setError(null);
+    setStartedAt(null);
   }
 
   function handleTrainingCategoryChange(nextCategory: FastTestCategory) {
@@ -292,6 +347,13 @@ function App() {
   function activateProfile(nextName: string) {
     const cleanName = normalizeProfileName(nextName);
     saveProgress(progress, profileName);
+    saveTrainingSession(profileName, {
+      mode: trainingSetMode,
+      lessonId: trainingLessonId,
+      category: trainingCategory,
+      count: trainingCount,
+      index: trainingIndex
+    });
 
     if (cleanName === profileName) {
       setProfileDraft(cleanName);
@@ -302,13 +364,21 @@ function App() {
     const knownProfiles = loadProfileNames();
     const isKnownProfile = knownProfiles.some((name) => name.toLowerCase() === cleanName.toLowerCase());
     const nextProgress = isKnownProfile ? loadProgress(cleanName) : progress;
+    const nextTraining = loadTrainingSession(cleanName, nextProgress);
 
     saveActiveProfileName(cleanName);
     saveProgress(nextProgress, cleanName);
+    saveTrainingSession(cleanName, nextTraining);
     setProfileName(cleanName);
     setProfileDraft(cleanName);
     setProfileNames(loadProfileNames());
     setProgress(nextProgress);
+    setTrainingSetMode(nextTraining.mode);
+    setTrainingLessonId(nextTraining.lessonId);
+    setTrainingCategory(nextTraining.category);
+    setTrainingCount(nextTraining.count);
+    setTrainingQueue(nextTraining.queue);
+    setTrainingIndex(nextTraining.index);
     setResult(null);
     setError(null);
     setStartedAt(null);
@@ -1613,6 +1683,121 @@ function getTrainingCountOptions(poolLength: number) {
   return Array.from(new Set([...TRAINING_QUESTION_OPTIONS.filter((option) => option <= poolLength), poolLength]))
     .filter((option) => option > 0)
     .sort((a, b) => a - b);
+}
+
+function loadTrainingSession(profileName: string, progress: ProgressState = {}): LoadedTrainingSession {
+  const snapshot = readTrainingSessionSnapshot(profileName);
+  const mode: TrainingSetMode = snapshot?.mode === "custom" ? "custom" : "path";
+  const lessonId = isTrainingLessonId(snapshot?.lessonId) ? snapshot.lessonId : trainingLessons[0].id;
+  const category = isFastTestCategory(snapshot?.category) ? snapshot.category : "all";
+  const count = normalizeTrainingCount(snapshot?.count, category);
+  const queue = createTrainingQueue(mode, lessonId, category, count);
+  const lessonIndexes = normalizeLessonIndexes(snapshot?.lessonIndexes);
+  const storedIndex = mode === "path" ? lessonIndexes[lessonId] ?? snapshot?.index : snapshot?.index;
+  const fallbackIndex = mode === "path" ? getSuggestedLessonIndexFromProgress(queue, progress) : 0;
+  const index = clampTrainingIndex(typeof storedIndex === "number" ? storedIndex : fallbackIndex, queue.length);
+
+  if (mode === "path") lessonIndexes[lessonId] = index;
+
+  return {
+    mode,
+    lessonId,
+    category,
+    count,
+    index,
+    queue,
+    lessonIndexes
+  };
+}
+
+function saveTrainingSession(profileName: string, snapshot: TrainingSessionSnapshot) {
+  try {
+    const previous = readTrainingSessionSnapshot(profileName);
+    const mode: TrainingSetMode = snapshot.mode === "custom" ? "custom" : "path";
+    const lessonId = isTrainingLessonId(snapshot.lessonId) ? snapshot.lessonId : trainingLessons[0].id;
+    const category = isFastTestCategory(snapshot.category) ? snapshot.category : "all";
+    const count = normalizeTrainingCount(snapshot.count, category);
+    const lessonIndexes = normalizeLessonIndexes(previous?.lessonIndexes ?? snapshot.lessonIndexes);
+    const queueLength =
+      mode === "path" ? createLessonQueue(getTrainingLesson(lessonId)).length : Math.min(count, getFastTestPool(category).length);
+    const index = clampTrainingIndex(snapshot.index, queueLength);
+
+    if (mode === "path") lessonIndexes[lessonId] = index;
+
+    const payload: TrainingSessionSnapshot = {
+      mode,
+      lessonId,
+      category,
+      count,
+      index,
+      lessonIndexes
+    };
+
+    window.localStorage.setItem(getTrainingSessionStorageKey(profileName), JSON.stringify(payload));
+  } catch {
+    // Local progress is a convenience feature. If storage is unavailable, training still works.
+  }
+}
+
+function resetTrainingSessionStorage(profileName: string) {
+  try {
+    window.localStorage.removeItem(getTrainingSessionStorageKey(profileName));
+  } catch {
+    // Ignore private-mode or storage access failures.
+  }
+}
+
+function readTrainingSessionSnapshot(profileName: string) {
+  try {
+    const raw = window.localStorage.getItem(getTrainingSessionStorageKey(profileName));
+    if (!raw) return null;
+    return JSON.parse(raw) as Partial<TrainingSessionSnapshot>;
+  } catch {
+    return null;
+  }
+}
+
+function getTrainingSessionStorageKey(profileName: string) {
+  return `${TRAINING_SESSION_STORAGE_PREFIX}${encodeURIComponent(normalizeProfileName(profileName))}`;
+}
+
+function normalizeTrainingCount(count: unknown, category: FastTestCategory) {
+  const poolLength = getFastTestPool(category).length;
+  const value = typeof count === "number" && Number.isFinite(count) ? Math.round(count) : DEFAULT_TRAINING_COUNT;
+  return Math.max(1, Math.min(value, Math.max(poolLength, 1)));
+}
+
+function normalizeLessonIndexes(value: unknown) {
+  if (!value || typeof value !== "object") return {};
+  const indexes: Record<string, number> = {};
+
+  for (const [lessonId, index] of Object.entries(value)) {
+    if (!isTrainingLessonId(lessonId) || typeof index !== "number" || !Number.isFinite(index)) continue;
+    indexes[lessonId] = Math.max(0, Math.round(index));
+  }
+
+  return indexes;
+}
+
+function clampTrainingIndex(index: number, queueLength: number) {
+  if (!queueLength || !Number.isFinite(index)) return 0;
+  return Math.max(0, Math.min(queueLength - 1, Math.round(index)));
+}
+
+function getSuggestedLessonIndexFromProgress(queue: Situation[], progress: ProgressState) {
+  const firstNewIndex = queue.findIndex((situation) => (progress[situation.id]?.attempts ?? 0) === 0);
+  if (firstNewIndex >= 0) return firstNewIndex;
+
+  const firstWeakIndex = queue.findIndex((situation) => progress[situation.id]?.status === "weak");
+  return firstWeakIndex >= 0 ? firstWeakIndex : 0;
+}
+
+function isTrainingLessonId(value: unknown): value is string {
+  return typeof value === "string" && trainingLessons.some((lesson) => lesson.id === value);
+}
+
+function isFastTestCategory(value: unknown): value is FastTestCategory {
+  return typeof value === "string" && fastTestCategories.includes(value as FastTestCategory);
 }
 
 function createConversationQueue(category: FastTestCategory, questionCount: number) {

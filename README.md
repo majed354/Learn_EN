@@ -136,6 +136,8 @@ Training starts with a fixed lesson path. Each lesson mixes a small set of relat
 
 The learner can also switch to Custom training, choose a topic or all topics, choose a limited number of cues, and shuffle that set. Training recordings stop automatically based on the selected speed mode so response time stays consistent.
 
+Lesson position is saved per learner profile and per lesson. When there is no saved lesson position yet, the app uses local progress to resume at the first unattempted cue instead of always restarting from cue 1.
+
 Feedback shows the learner's raw recognized words under `Your words`, then shows a separate `Corrected` version when grammar or wording needs cleanup. A check appears beside `Your words` only when the answer is accepted with no major grammar or naturalness issue. `Say it like this` shows three short natural alternatives so the learner can practice more than one correct response.
 
 Progress can be saved under a learner-chosen profile name. The MVP stores profiles locally in the browser, so each browser/device keeps its own named progress until cloud accounts are added later.
