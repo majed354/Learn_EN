@@ -18,7 +18,8 @@ type ModelEvaluation = {
   overall?: number;
   passed?: boolean;
   corrected_answer?: string;
-  better_answer: string;
+  better_answer?: string;
+  better_answers?: string[];
   feedback_en: string;
   error_type: ErrorType;
 };
@@ -54,7 +55,7 @@ export default async function handler(request: Request) {
         ? await evaluateWithOllama(situation, transcript, speed)
         : await evaluateWithGemini(situation, transcript, speed);
 
-    const result = normalizeEvaluation(evaluation, transcript, speed);
+    const result = normalizeEvaluation(evaluation, transcript, speed, situation);
     return json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Evaluation failed.";
@@ -307,7 +308,7 @@ Rules:
 10. If the meaning is correct but grammar is rough, keep meaning high and lower grammar/naturalness instead.
 11. Provide corrected_answer as the learner's answer rewritten with correct grammar and natural wording, preserving their wording as much as possible.
 12. Feedback must be short English only. Do not use Arabic.
-13. Give one better English answer that is natural and short. It is a suggestion, not the only correct answer.
+13. Give exactly three better English answers in better_answers. Make them short, natural, and varied, but keep the same target meaning.
 14. Return JSON only.
 
 JSON schema:
@@ -318,7 +319,7 @@ JSON schema:
   "overall": number,
   "passed": boolean,
   "corrected_answer": string,
-  "better_answer": string,
+  "better_answers": string[],
   "feedback_en": string,
   "error_type": "none" | "too_slow" | "wrong_meaning" | "grammar" | "unnatural" | "unclear_audio"
 }`;
@@ -327,7 +328,8 @@ JSON schema:
 function normalizeEvaluation(
   evaluation: ModelEvaluation,
   transcript: string,
-  speed: number
+  speed: number,
+  situation: SituationPayload
 ): EvaluationResult {
   const meaning = clampScore(evaluation.meaning);
   const grammar = clampScore(evaluation.grammar);
@@ -345,6 +347,7 @@ function normalizeEvaluation(
       : Math.min(rawOverall, meaningCap);
   const semanticallyGood = meaning >= 70 && overall >= 65 && !wrongMeaning && !unclearAudio;
   const passed = semanticallyGood && evaluation.passed !== false;
+  const betterAnswers = normalizeBetterAnswers(evaluation, situation);
 
   return {
     transcript,
@@ -355,12 +358,32 @@ function normalizeEvaluation(
     overall,
     passed,
     perfect: meaning >= 85 && speed >= 75,
-    corrected_answer: evaluation.corrected_answer || evaluation.better_answer || transcript,
-    better_answer: evaluation.better_answer || "Could you say that again, please?",
+    corrected_answer: evaluation.corrected_answer || betterAnswers[0] || transcript,
+    better_answer: betterAnswers[0] || "Could you say that again, please?",
+    better_answers: betterAnswers,
     feedback_en: evaluation.feedback_en || "Try again with a shorter, clearer sentence.",
     error_type: wrongMeaning ? "wrong_meaning" : evaluation.error_type || (speed < 50 ? "too_slow" : "none"),
     mode: "live"
   };
+}
+
+function normalizeBetterAnswers(evaluation: ModelEvaluation, situation: SituationPayload) {
+  const candidates = [
+    ...(Array.isArray(evaluation.better_answers) ? evaluation.better_answers : []),
+    evaluation.better_answer,
+    ...situation.acceptableAnswers
+  ];
+  const unique: string[] = [];
+
+  for (const candidate of candidates) {
+    const answer = candidate?.trim();
+    if (!answer) continue;
+    if (unique.some((item) => item.toLowerCase() === answer.toLowerCase())) continue;
+    unique.push(answer);
+    if (unique.length === 3) break;
+  }
+
+  return unique.length ? unique : ["Could you say that again, please?"];
 }
 
 function parseModelEvaluation(text: string): ModelEvaluation {

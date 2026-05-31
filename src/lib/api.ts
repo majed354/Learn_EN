@@ -36,8 +36,12 @@ export async function submitAnswer(
   }
 
   const result = (await response.json()) as EvaluationResult;
+  const betterAnswers = normalizeBetterAnswers(result);
   return {
     ...result,
+    corrected_answer: result.corrected_answer || betterAnswers[0] || result.transcript,
+    better_answer: betterAnswers[0] || result.better_answer,
+    better_answers: betterAnswers,
     meaning: clampScore(result.meaning),
     grammar: clampScore(result.grammar),
     naturalness: clampScore(result.naturalness),
@@ -72,8 +76,28 @@ function demoEvaluation(situation: Situation, responseTimeMs: number, targetResp
     passed: meaning >= 70 && overall >= 65,
     perfect: meaning >= 85 && speed >= 75,
     better_answer: situation.acceptableAnswers[0],
+    better_answers: getDemoBetterAnswers(situation),
     feedback_en: "Demo mode is active. The full evaluator will use your spoken answer after Netlify keys are set.",
     error_type: speed < 50 ? "too_slow" : "none",
     mode: "demo"
   };
+}
+
+function getDemoBetterAnswers(situation: Situation) {
+  return situation.acceptableAnswers.slice(0, 3);
+}
+
+function normalizeBetterAnswers(result: EvaluationResult) {
+  const answers = [...(result.better_answers ?? []), result.better_answer].filter(Boolean);
+  const unique: string[] = [];
+
+  for (const answer of answers) {
+    const trimmed = answer.trim();
+    if (!trimmed) continue;
+    if (unique.some((item) => item.toLowerCase() === trimmed.toLowerCase())) continue;
+    unique.push(trimmed);
+    if (unique.length === 3) break;
+  }
+
+  return unique.length ? unique : [result.corrected_answer || result.transcript || "Could you say that again, please?"];
 }

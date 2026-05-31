@@ -1167,6 +1167,7 @@ function createFastTestMistakeEvaluation(
     passed: false,
     perfect: false,
     better_answer: situation.acceptableAnswers[0],
+    better_answers: situation.acceptableAnswers.slice(0, 3),
     feedback_en: message,
     error_type: "too_slow",
     mode: "heuristic"

@@ -53,6 +53,7 @@ export function FeedbackPanel({
 
   const cleanAnswer =
     result.passed && result.error_type === "none" && result.grammar >= 85 && result.naturalness >= 80;
+  const betterAnswers = getBetterAnswers(result);
 
   return (
     <section className={`feedback-panel ${result.passed ? "passed" : "retry"}`} aria-live="polite">
@@ -79,10 +80,21 @@ export function FeedbackPanel({
       </div>
       <div className="answer-block best-answer">
         <span>Say it like this</span>
-        <p>{result.better_answer}</p>
-        <button className="icon-button" type="button" onClick={() => onSpeak(result.better_answer)} title="Play answer">
-          <Volume2 size={18} aria-hidden="true" />
-        </button>
+        <div className="answer-options">
+          {betterAnswers.map((answer, index) => (
+            <div className="answer-option" key={`${answer}-${index}`}>
+              <p>{answer}</p>
+              <button
+                className="answer-play-button"
+                type="button"
+                onClick={() => onSpeak(answer)}
+                title={`Play option ${index + 1}`}
+              >
+                <Volume2 size={17} aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
       <p className="coach-tip">{result.feedback_en}</p>
       <div className="feedback-actions">
@@ -97,4 +109,17 @@ export function FeedbackPanel({
       </div>
     </section>
   );
+}
+
+function getBetterAnswers(result: EvaluationResult) {
+  const answers = [...(result.better_answers ?? []), result.better_answer].filter(Boolean);
+  const unique: string[] = [];
+
+  for (const answer of answers) {
+    if (unique.some((item) => item.toLowerCase() === answer.toLowerCase())) continue;
+    unique.push(answer);
+    if (unique.length === 3) break;
+  }
+
+  return unique.length ? unique : [result.better_answer];
 }

@@ -17,6 +17,7 @@ export type EvaluationResult = {
   passed: boolean;
   perfect: boolean;
   better_answer: string;
+  better_answers: string[];
   feedback_en: string;
   error_type: ErrorType;
   mode?: "live" | "demo" | "heuristic";
