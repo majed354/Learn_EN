@@ -142,6 +142,17 @@ Progress can be saved under a learner-chosen profile name. The MVP stores profil
 
 Sound feedback can be switched on or muted. The app uses short browser-generated cues for accepted answers, retry moments, and timeout misses, with light phone vibration when the browser supports it.
 
+Speed is scored from the detected end of your spoken answer, not just the full recording window. The browser listens for voice activity, and the Gemini transcription step also estimates where the spoken answer ends so trailing silence does not keep the score stuck at one value.
+
+## Flowing Conversation
+
+Talk mode turns each visual situation into a spoken English cue, then automatically starts recording the learner's reply. It supports:
+
+- Continuous: the next spoken cue starts automatically after feedback.
+- Click: the learner reviews feedback and taps Next before the next cue.
+
+The learner can choose 5 or 8 seconds, the number of turns, and the topic. Conversation attempts update the same local progress profile as Training and Fast Test.
+
 ## Four-Stage Content Plan
 
 The full practical core is planned as 1,000 visual speaking situations:

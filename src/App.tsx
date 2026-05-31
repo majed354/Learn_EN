@@ -4,6 +4,7 @@ import {
   ClipboardList,
   Dumbbell,
   ListChecks,
+  MessageCircle,
   Mic,
   PlayCircle,
   RotateCcw,
@@ -13,7 +14,7 @@ import {
   VolumeX,
   XCircle
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { AudioRecorder } from "./components/AudioRecorder";
 import { FeedbackPanel } from "./components/FeedbackPanel";
@@ -44,7 +45,7 @@ import type { ProgressState } from "./lib/progress";
 import { getTargetMs, speedScore, trainingModes } from "./lib/scoring";
 import type { EvaluationResult, TrainingMode } from "./lib/scoring";
 
-type View = "train" | "test" | "review" | "stats";
+type View = "train" | "test" | "talk" | "review" | "stats";
 
 const TRAINING_QUESTION_OPTIONS = [1, 5, 10, 15, 20, 25, 50, 100, 250] as const;
 const FAST_TEST_SECONDS_OPTIONS = [5, 8] as const;
@@ -56,6 +57,8 @@ type TrainingSetMode = "path" | "custom";
 type FastTestSeconds = (typeof FAST_TEST_SECONDS_OPTIONS)[number];
 type FastTestCategory = Situation["category"] | "all";
 type FastTestMode = "normal" | "challenge";
+type ConversationAdvanceMode = "continuous" | "click";
+type ConversationPhase = "ready" | "asking" | "answering" | "checking" | "feedback" | "finished";
 type MicrophoneStatus = "idle" | "checking" | "ready" | "blocked";
 
 type TrainingLesson = {
@@ -64,6 +67,13 @@ type TrainingLesson = {
   description: string;
   categories: SituationCategory[];
   count: number;
+};
+
+type ConversationTurn = {
+  situation: Situation;
+  result: EvaluationResult | null;
+  passed: boolean;
+  responseTimeMs: number | null;
 };
 
 const fastTestCategories: FastTestCategory[] = [
@@ -320,6 +330,10 @@ function App() {
             <PlayCircle size={17} aria-hidden="true" />
             <span>Test</span>
           </button>
+          <button className={view === "talk" ? "active" : ""} type="button" onClick={() => setView("talk")}>
+            <MessageCircle size={17} aria-hidden="true" />
+            <span>Talk</span>
+          </button>
           <button className={view === "review" ? "active" : ""} type="button" onClick={() => setView("review")}>
             <ListChecks size={17} aria-hidden="true" />
             <span>Review</span>
@@ -512,6 +526,16 @@ function App() {
           onEvaluation={(situationId, evaluation) => {
             setProgress((previous) => updateSituationProgress(previous, situationId, evaluation));
           }}
+        />
+      ) : null}
+
+      {view === "talk" ? (
+        <ConversationView
+          feedbackEnabled={feedbackEnabled}
+          onEvaluation={(situationId, evaluation) => {
+            setProgress((previous) => updateSituationProgress(previous, situationId, evaluation));
+          }}
+          onSpeak={speak}
         />
       ) : null}
 
@@ -1081,6 +1105,371 @@ function FastTestView({
   );
 }
 
+function ConversationView({
+  feedbackEnabled,
+  onEvaluation,
+  onSpeak
+}: {
+  feedbackEnabled: boolean;
+  onEvaluation: (situationId: string, evaluation: EvaluationResult) => void;
+  onSpeak: (text: string) => void;
+}) {
+  const [advanceMode, setAdvanceMode] = useState<ConversationAdvanceMode>("continuous");
+  const [seconds, setSeconds] = useState<FastTestSeconds>(8);
+  const [questionCount, setQuestionCount] = useState<number>(10);
+  const [category, setCategory] = useState<FastTestCategory>("all");
+  const [queue, setQueue] = useState<Situation[]>(() => createConversationQueue("all", 10));
+  const [index, setIndex] = useState(0);
+  const [phase, setPhase] = useState<ConversationPhase>("ready");
+  const [answerStartedAt, setAnswerStartedAt] = useState<number | null>(null);
+  const [autoStartKey, setAutoStartKey] = useState<string | null>(null);
+  const [resetKey, setResetKey] = useState(0);
+  const [result, setResult] = useState<EvaluationResult | null>(null);
+  const [history, setHistory] = useState<ConversationTurn[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const questionTimeoutRef = useRef<number | null>(null);
+
+  const targetMs = seconds * 1000;
+  const pool = getFastTestPool(category);
+  const selectedQuestionCount = Math.min(questionCount, pool.length);
+  const questionCountOptions = getConversationCountOptions(pool.length);
+  const currentSituation = queue[index];
+  const conversationQuestion = currentSituation ? getConversationQuestion(currentSituation) : "";
+  const isAnswering = phase === "answering";
+  const deadlineAt = isAnswering && answerStartedAt ? answerStartedAt + targetMs : null;
+  const remainingMs = deadlineAt ? Math.max(0, deadlineAt - now) : targetMs;
+  const score = history.length
+    ? Math.round((history.filter((turn) => turn.passed).length / history.length) * 100)
+    : 0;
+
+  useEffect(() => {
+    if (!isAnswering || !answerStartedAt) return;
+    const interval = window.setInterval(() => setNow(Date.now()), 80);
+    return () => window.clearInterval(interval);
+  }, [isAnswering, answerStartedAt]);
+
+  useEffect(() => {
+    if (phase !== "feedback" || advanceMode !== "continuous" || error) return;
+    const timeout = window.setTimeout(() => {
+      advanceConversation();
+    }, 1400);
+
+    return () => window.clearTimeout(timeout);
+  }, [phase, advanceMode, error, history.length]);
+
+  useEffect(() => {
+    return () => {
+      clearConversationPrompt();
+    };
+  }, []);
+
+  function startConversation() {
+    clearConversationPrompt();
+    const nextQueue = createConversationQueue(category, questionCount);
+    setQueue(nextQueue);
+    setIndex(0);
+    setHistory([]);
+    setResult(null);
+    setError(null);
+    setResetKey((key) => key + 1);
+    if (nextQueue[0]) {
+      window.setTimeout(() => askConversationQuestion(nextQueue[0]), 80);
+    }
+  }
+
+  function resetConversation(nextCategory = category, nextQuestionCount = questionCount) {
+    clearConversationPrompt();
+    setQueue(createConversationQueue(nextCategory, nextQuestionCount));
+    setIndex(0);
+    setPhase("ready");
+    setAnswerStartedAt(null);
+    setAutoStartKey(null);
+    setResult(null);
+    setHistory([]);
+    setError(null);
+    setResetKey((key) => key + 1);
+  }
+
+  function handleCategoryChange(nextCategory: FastTestCategory) {
+    setCategory(nextCategory);
+    resetConversation(nextCategory, questionCount);
+  }
+
+  function handleQuestionCountChange(nextQuestionCount: number) {
+    setQuestionCount(nextQuestionCount);
+    resetConversation(category, nextQuestionCount);
+  }
+
+  function askConversationQuestion(situation: Situation) {
+    clearConversationPrompt();
+    setPhase("asking");
+    setResult(null);
+    setError(null);
+    setAnswerStartedAt(null);
+    setAutoStartKey(null);
+    setNow(Date.now());
+
+    let didStartAnswer = false;
+    const startAnswer = () => {
+      if (didStartAnswer) return;
+      didStartAnswer = true;
+      if (questionTimeoutRef.current) {
+        window.clearTimeout(questionTimeoutRef.current);
+        questionTimeoutRef.current = null;
+      }
+      const startedAt = Date.now();
+      setAnswerStartedAt(startedAt);
+      setAutoStartKey(`${situation.id}-${startedAt}`);
+      setPhase("answering");
+      setNow(startedAt);
+    };
+
+    const utterance = new SpeechSynthesisUtterance(getConversationQuestion(situation));
+    utterance.lang = "en-US";
+    utterance.rate = 0.92;
+    utterance.onend = startAnswer;
+    utterance.onerror = startAnswer;
+    window.speechSynthesis.speak(utterance);
+    questionTimeoutRef.current = window.setTimeout(startAnswer, 5200);
+  }
+
+  async function handleRecordingStop(audioBlob: Blob, responseTimeMs: number) {
+    if (!currentSituation) return;
+    setPhase("checking");
+    setError(null);
+    setAnswerStartedAt(null);
+    setAutoStartKey(null);
+
+    try {
+      const evaluation = await submitAnswer(audioBlob, currentSituation, responseTimeMs, targetMs);
+      const passed = evaluation.passed && evaluation.speed >= 75;
+      onEvaluation(currentSituation.id, evaluation);
+      setResult(evaluation);
+      setHistory((previous) => [
+        ...previous,
+        {
+          situation: currentSituation,
+          result: evaluation,
+          passed,
+          responseTimeMs
+        }
+      ]);
+      emitFeedbackSignal(passed ? "success" : "retry", feedbackEnabled);
+      setPhase("feedback");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not evaluate this answer.");
+      setHistory((previous) => [
+        ...previous,
+        {
+          situation: currentSituation,
+          result: null,
+          passed: false,
+          responseTimeMs
+        }
+      ]);
+      emitFeedbackSignal("retry", feedbackEnabled);
+      setPhase("feedback");
+    }
+  }
+
+  function advanceConversation() {
+    const nextIndex = index + 1;
+    if (nextIndex >= queue.length) {
+      setPhase("finished");
+      setAnswerStartedAt(null);
+      setAutoStartKey(null);
+      return;
+    }
+
+    setIndex(nextIndex);
+    setResetKey((key) => key + 1);
+    const nextSituation = queue[nextIndex];
+    window.setTimeout(() => askConversationQuestion(nextSituation), 80);
+  }
+
+  function retryConversationCue() {
+    if (!currentSituation) return;
+    setResetKey((key) => key + 1);
+    window.setTimeout(() => askConversationQuestion(currentSituation), 80);
+  }
+
+  function clearConversationPrompt() {
+    if (questionTimeoutRef.current) {
+      window.clearTimeout(questionTimeoutRef.current);
+      questionTimeoutRef.current = null;
+    }
+    window.speechSynthesis.cancel();
+  }
+
+  const controls = (
+    <div className="test-controls conversation-controls" aria-label="Conversation settings">
+      <div className="test-control-group">
+        <span>Mode</span>
+        <div className="segmented-control" aria-label="Conversation mode">
+          <button
+            className={advanceMode === "continuous" ? "active" : ""}
+            type="button"
+            onClick={() => setAdvanceMode("continuous")}
+          >
+            Continuous
+          </button>
+          <button
+            className={advanceMode === "click" ? "active" : ""}
+            type="button"
+            onClick={() => setAdvanceMode("click")}
+          >
+            Click
+          </button>
+        </div>
+      </div>
+      <div className="test-control-group">
+        <span>Seconds</span>
+        <div className="segmented-control" aria-label="Answer seconds">
+          {FAST_TEST_SECONDS_OPTIONS.map((option) => (
+            <button className={seconds === option ? "active" : ""} key={option} type="button" onClick={() => setSeconds(option)}>
+              {option}s
+            </button>
+          ))}
+        </div>
+      </div>
+      <label className="test-control-group">
+        <span>Turns</span>
+        <select value={selectedQuestionCount} onChange={(event) => handleQuestionCountChange(Number(event.target.value))}>
+          {questionCountOptions.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="test-control-group">
+        <span>Topic</span>
+        <select value={category} onChange={(event) => handleCategoryChange(event.target.value as FastTestCategory)}>
+          {fastTestCategories.map((item) => (
+            <option key={item} value={item}>
+              {formatCategoryLabel(item)} ({getFastTestPool(item).length})
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+
+  if (!queue.length) {
+    return (
+      <section className="conversation-layout">
+        {controls}
+        <section className="test-result-panel">
+          <span className="eyebrow">Conversation</span>
+          <p>No conversation cues are available for this topic yet.</p>
+        </section>
+      </section>
+    );
+  }
+
+  if (phase === "ready") {
+    return (
+      <section className="conversation-layout">
+        {controls}
+        <section className="test-start-panel">
+          <span className="eyebrow">Flowing Conversation</span>
+          <h2>Hear the cue, answer fast.</h2>
+          <p>
+            {advanceMode === "continuous"
+              ? "The next spoken cue starts automatically after feedback."
+              : "Use Next after each answer when you want control."}
+          </p>
+          <button className="primary-button" type="button" onClick={startConversation}>
+            <PlayCircle size={18} aria-hidden="true" />
+            Start conversation
+          </button>
+        </section>
+      </section>
+    );
+  }
+
+  if (phase === "finished") {
+    return (
+      <section className="conversation-layout">
+        {controls}
+        <section className="test-report-panel">
+          <div className="report-hero">
+            <span className="eyebrow">Conversation Score</span>
+            <strong>{score}%</strong>
+            <p>{history.length} spoken turns completed.</p>
+          </div>
+          <div className="report-actions">
+            <button className="primary-button" type="button" onClick={startConversation}>
+              Start again
+            </button>
+          </div>
+        </section>
+      </section>
+    );
+  }
+
+  return (
+    <section className="conversation-layout">
+      {controls}
+      <div className="test-score-strip conversation-score-strip">
+        <span>
+          Turn <strong>{index + 1}/{queue.length}</strong>
+        </span>
+        <span>
+          Time <strong>{seconds}s</strong>
+        </span>
+        <span>
+          Mode <strong>{advanceMode === "continuous" ? "Auto" : "Click"}</strong>
+        </span>
+        <span>
+          Score <strong>{score}%</strong>
+        </span>
+      </div>
+      {currentSituation ? (
+        <section className="conversation-grid">
+          <div className="test-card conversation-card">
+            <div className="test-image-wrap">
+              <SituationImage className="test-image" situation={currentSituation} />
+            </div>
+            <div className="test-prompt">
+              <span>{currentSituation.category.replace("-", " ")}</span>
+              <h2>{conversationQuestion}</h2>
+              <p>{phase === "asking" ? "Listen..." : phase === "answering" ? "Answer now." : "Checking your reply."}</p>
+            </div>
+          </div>
+
+          <div className="practice-panel test-practice-panel">
+            <div className={`timer ${remainingMs === 0 ? "over" : ""}`}>
+              <span>{(remainingMs / 1000).toFixed(1)}</span>
+              <small>seconds</small>
+            </div>
+            <AudioRecorder
+              autoStartKey={autoStartKey}
+              resetKey={resetKey}
+              disabled={phase !== "answering"}
+              responseStartedAt={answerStartedAt}
+              stopAt={deadlineAt}
+              manualStopEnabled={false}
+              onRecordingStart={() => undefined}
+              onRecordingStop={handleRecordingStop}
+            />
+          </div>
+
+          <FeedbackPanel
+            result={result}
+            isSubmitting={phase === "checking"}
+            error={error}
+            onRetry={retryConversationCue}
+            onNext={advanceConversation}
+            onSpeak={onSpeak}
+          />
+        </section>
+      ) : null}
+    </section>
+  );
+}
+
 function ReviewView({
   dueSituations,
   progress,
@@ -1224,6 +1613,21 @@ function getTrainingCountOptions(poolLength: number) {
   return Array.from(new Set([...TRAINING_QUESTION_OPTIONS.filter((option) => option <= poolLength), poolLength]))
     .filter((option) => option > 0)
     .sort((a, b) => a - b);
+}
+
+function createConversationQueue(category: FastTestCategory, questionCount: number) {
+  const pool = getFastTestPool(category);
+  return shuffleSituations(pool).slice(0, Math.min(questionCount, pool.length));
+}
+
+function getConversationCountOptions(poolLength: number) {
+  return Array.from(new Set([5, 10, 15, 20, 25, ...FAST_TEST_QUESTION_OPTIONS, poolLength]))
+    .filter((option) => option > 0 && option <= poolLength)
+    .sort((a, b) => a - b);
+}
+
+function getConversationQuestion(situation: Situation) {
+  return `${situation.prompt} What do you say?`;
 }
 
 function getMicrophoneStatusLabel(status: MicrophoneStatus) {

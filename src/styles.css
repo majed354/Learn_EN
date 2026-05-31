@@ -59,7 +59,7 @@ button {
 
 .view-tabs {
   display: inline-grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 4px;
   padding: 4px;
   background: #dfe8e4;
@@ -898,6 +898,37 @@ button {
   gap: 12px;
 }
 
+.conversation-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.conversation-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.conversation-grid .practice-panel,
+.conversation-grid .feedback-panel {
+  grid-column: 2;
+}
+
+.conversation-card {
+  grid-row: span 2;
+}
+
+.conversation-card .test-prompt p {
+  margin: 10px 0 0;
+  color: #61756e;
+  font-weight: 850;
+}
+
+.conversation-score-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .test-controls {
   padding: 10px;
   display: grid;
@@ -1278,7 +1309,7 @@ button {
   }
 
   .view-tabs {
-    grid-template-columns: repeat(4, 42px);
+    grid-template-columns: repeat(5, 42px);
     gap: 3px;
     padding: 3px;
     border-radius: 8px;
@@ -1566,6 +1597,20 @@ button {
   .test-controls {
     grid-template-columns: 1fr 1fr;
     padding: 8px;
+  }
+
+  .conversation-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .conversation-grid .practice-panel,
+  .conversation-grid .feedback-panel {
+    grid-column: auto;
+  }
+
+  .conversation-card {
+    grid-row: auto;
   }
 
   .mic-check {

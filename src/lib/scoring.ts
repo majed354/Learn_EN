@@ -25,10 +25,23 @@ export type EvaluationResult = {
 
 export function speedScore(responseTimeMs: number, targetMs = 5000) {
   const target = Math.max(2500, targetMs);
-  if (responseTimeMs <= target * 0.6) return 100;
-  if (responseTimeMs <= target) return 75;
-  if (responseTimeMs <= target * 1.4) return 50;
-  return 20;
+  const response = Math.max(0, responseTimeMs);
+  const fastLimit = target * 0.45;
+
+  if (response <= fastLimit) return 100;
+
+  if (response <= target) {
+    const progress = (response - fastLimit) / (target - fastLimit);
+    return clampScore(100 - progress * 25);
+  }
+
+  if (response <= target * 1.4) {
+    const progress = (response - target) / (target * 0.4);
+    return clampScore(75 - progress * 25);
+  }
+
+  const progress = Math.min(1, (response - target * 1.4) / (target * 0.8));
+  return clampScore(50 - progress * 30);
 }
 
 export function clampScore(value: number) {

@@ -24,6 +24,11 @@ type ModelEvaluation = {
   error_type: ErrorType;
 };
 
+type TranscriptionResult = {
+  transcript: string;
+  speechEndMs: number | null;
+};
+
 const jsonHeaders = {
   "Content-Type": "application/json"
 };
@@ -47,15 +52,21 @@ export default async function handler(request: Request) {
     }
 
     const situation = JSON.parse(rawSituation) as SituationPayload;
-    const transcript = await transcribeAudio(audio);
-    const speed = speedScore(situation.responseTimeMs, situation.targetResponseMs);
+    const transcription = await transcribeAudio(audio);
+    const scoredResponseTimeMs = getScoredResponseTimeMs(
+      transcription.speechEndMs,
+      situation.responseTimeMs,
+      situation.targetResponseMs
+    );
+    const scoredSituation = { ...situation, responseTimeMs: scoredResponseTimeMs };
+    const speed = speedScore(scoredSituation.responseTimeMs, scoredSituation.targetResponseMs);
     const provider = (process.env.EVALUATOR_PROVIDER ?? "gemini").toLowerCase();
     const evaluation =
       provider === "ollama"
-        ? await evaluateWithOllama(situation, transcript, speed)
-        : await evaluateWithGemini(situation, transcript, speed);
+        ? await evaluateWithOllama(scoredSituation, transcription.transcript, speed)
+        : await evaluateWithGemini(scoredSituation, transcription.transcript, speed);
 
-    const result = normalizeEvaluation(evaluation, transcript, speed, situation);
+    const result = normalizeEvaluation(evaluation, transcription.transcript, speed, scoredSituation);
     return json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Evaluation failed.";
@@ -101,7 +112,7 @@ async function transcribeWithOpenAI(audio: Blob) {
     throw new Error("No speech was detected.");
   }
 
-  return transcript;
+  return { transcript, speechEndMs: null };
 }
 
 async function transcribeWithGemini(audio: Blob) {
@@ -120,10 +131,13 @@ Rules:
 2. Keep the transcript in English.
 3. If speech is unclear, return an empty transcript.
 4. Do not correct grammar.
+5. Estimate speech_end_ms as milliseconds from the start of the audio to the end of the learner's spoken answer.
+6. Do not count trailing silence after the answer. If unsure, use null.
 
 JSON schema:
 {
-  "transcript": string
+  "transcript": string,
+  "speech_end_ms": number | null
 }`;
 
   const response = await fetch(
@@ -169,13 +183,16 @@ JSON schema:
     throw new Error("Gemini returned an empty transcription.");
   }
 
-  const parsed = parseJsonObject<{ transcript?: string }>(text);
+  const parsed = parseJsonObject<{ transcript?: string; speech_end_ms?: number | null }>(text);
   const transcript = parsed.transcript?.trim();
   if (!transcript) {
     throw new Error("No speech was detected.");
   }
 
-  return transcript;
+  return {
+    transcript,
+    speechEndMs: typeof parsed.speech_end_ms === "number" ? parsed.speech_end_ms : null
+  };
 }
 
 async function evaluateWithGemini(
@@ -365,6 +382,15 @@ function normalizeEvaluation(
     error_type: wrongMeaning ? "wrong_meaning" : evaluation.error_type || (speed < 50 ? "too_slow" : "none"),
     mode: "live"
   };
+}
+
+function getScoredResponseTimeMs(speechEndMs: number | null, fallbackMs: number, targetMs?: number) {
+  if (typeof speechEndMs !== "number" || !Number.isFinite(speechEndMs) || speechEndMs <= 0) {
+    return fallbackMs;
+  }
+
+  const maxReasonableMs = Math.max(fallbackMs, targetMs ?? fallbackMs, 250);
+  return Math.min(Math.max(Math.round(speechEndMs), 250), maxReasonableMs);
 }
 
 function normalizeBetterAnswers(evaluation: ModelEvaluation, situation: SituationPayload) {

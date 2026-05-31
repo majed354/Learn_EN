@@ -37,11 +37,16 @@ export function AudioRecorder({
   const sendOnStopRef = useRef(true);
   const recordingSessionRef = useRef(0);
   const autoStopResponseTimeRef = useRef<number | null>(null);
+  const voiceContextRef = useRef<AudioContext | null>(null);
+  const voiceFrameRef = useRef<number | null>(null);
+  const voiceDetectedRef = useRef(false);
+  const lastVoiceAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (resetKey == null) return;
     autoStartedKeyRef.current = null;
     autoStopResponseTimeRef.current = null;
+    stopVoiceTiming();
     sendOnStopRef.current = false;
     if (autoStopRef.current) {
       window.clearTimeout(autoStopRef.current);
@@ -61,6 +66,7 @@ export function AudioRecorder({
     return () => {
       sendOnStopRef.current = false;
       if (autoStopRef.current) window.clearTimeout(autoStopRef.current);
+      stopVoiceTiming();
       if (recorderRef.current?.state === "recording") recorderRef.current.stop();
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
@@ -114,6 +120,9 @@ export function AudioRecorder({
       recorderRef.current = recorder;
       startedAtRef.current = Date.now();
       autoStopResponseTimeRef.current = null;
+      voiceDetectedRef.current = false;
+      lastVoiceAtRef.current = null;
+      startVoiceTiming(stream);
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.push(event.data);
@@ -127,8 +136,11 @@ export function AudioRecorder({
         }
         const type = recorder.mimeType || "audio/webm";
         const audioBlob = new Blob(chunks, { type });
+        stopVoiceTiming();
         const responseTimeMs =
-          autoStopResponseTimeRef.current ?? Date.now() - (responseStartedAt ?? startedAtRef.current);
+          getDetectedResponseTime(responseStartedAt ?? startedAtRef.current) ??
+          autoStopResponseTimeRef.current ??
+          Date.now() - (responseStartedAt ?? startedAtRef.current);
         autoStopResponseTimeRef.current = null;
         if (!keepStreamAlive && isCurrentSession) streamRef.current?.getTracks().forEach((track) => track.stop());
         if (isCurrentSession) setIsRecording(false);
@@ -156,6 +168,7 @@ export function AudioRecorder({
         window.clearTimeout(autoStopRef.current);
         autoStopRef.current = null;
       }
+      stopVoiceTiming();
       if (!keepStreamAlive) streamRef.current?.getTracks().forEach((track) => track.stop());
       isStartingRef.current = false;
       setIsRecording(false);
@@ -172,6 +185,77 @@ export function AudioRecorder({
     if (recorderRef.current?.state === "recording") {
       recorderRef.current.stop();
     }
+  }
+
+  function startVoiceTiming(stream: MediaStream) {
+    stopVoiceTiming();
+
+    try {
+      const context = new AudioContext();
+      const source = context.createMediaStreamSource(stream);
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 512;
+      const data = new Uint8Array(analyser.fftSize);
+      let noiseRms = 0.008;
+      let noisePeak = 0.04;
+      source.connect(analyser);
+      if (context.state === "suspended") void context.resume();
+
+      const tick = () => {
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        let peak = 0;
+
+        for (const value of data) {
+          const normalized = (value - 128) / 128;
+          const absolute = Math.abs(normalized);
+          sum += normalized * normalized;
+          peak = Math.max(peak, absolute);
+        }
+
+        const rms = Math.sqrt(sum / data.length);
+        const elapsed = Date.now() - startedAtRef.current;
+        const enoughTimePassed = elapsed > 180;
+        const learningNoiseFloor = elapsed < 650 && !voiceDetectedRef.current;
+        const rmsThreshold = Math.max(0.012, noiseRms * 2.6);
+        const peakThreshold = Math.max(0.055, noisePeak * 1.9);
+
+        if (learningNoiseFloor) {
+          noiseRms = noiseRms * 0.86 + rms * 0.14;
+          noisePeak = noisePeak * 0.86 + peak * 0.14;
+        }
+
+        if (enoughTimePassed && (rms > rmsThreshold || peak > peakThreshold)) {
+          voiceDetectedRef.current = true;
+          lastVoiceAtRef.current = Date.now();
+        }
+
+        voiceFrameRef.current = window.requestAnimationFrame(tick);
+      };
+
+      voiceContextRef.current = context;
+      voiceFrameRef.current = window.requestAnimationFrame(tick);
+    } catch {
+      voiceContextRef.current = null;
+      voiceFrameRef.current = null;
+    }
+  }
+
+  function stopVoiceTiming() {
+    if (voiceFrameRef.current) {
+      window.cancelAnimationFrame(voiceFrameRef.current);
+      voiceFrameRef.current = null;
+    }
+
+    if (voiceContextRef.current && voiceContextRef.current.state !== "closed") {
+      void voiceContextRef.current.close();
+    }
+    voiceContextRef.current = null;
+  }
+
+  function getDetectedResponseTime(responseBase: number) {
+    if (!voiceDetectedRef.current || !lastVoiceAtRef.current) return null;
+    return Math.max(250, Math.round(lastVoiceAtRef.current - responseBase));
   }
 
   return (
